@@ -65,6 +65,10 @@ public:
   // Single-player money cheat (Ctrl+Shift+G = +25,000 credits). Off by default, never active in multiplayer.
   bool moneyCheat = false;
 
+  // Stutter log: slow frames and a summary in data\emperor.txt (PerfLog.cpp). On by default for now, while we
+  // look for stutters; can be switched off under Troubleshooting.
+  bool perfLog = true;
+
   // Large in-game text: the game's two text fonts at 2x size (Emperor Spice HD fonts). Off by default.
   bool largeFont = false;
 
@@ -163,6 +167,10 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
+    std::optional<std::string> perfLogTemp = regReadString(key, "PerfLog");
+    if (perfLogTemp)
+      perfLog = *perfLogTemp == "1";
+
     std::optional<std::string> hdTexturesTemp = regReadString(key, "HDTextures");
     if (hdTexturesTemp)
       hdTextures = *hdTexturesTemp == "1";
@@ -205,6 +213,7 @@ public:
     regWriteString(key, "LargeFont", largeFont ? "1" : "0");
     regWriteString(key, "Mods", mods ? "1" : "0");
     regWriteString(key, "HDTextures", hdTextures ? "1" : "0");
+    regWriteString(key, "PerfLog", perfLog ? "1" : "0");
 
     RegCloseKey(key);
   }

@@ -322,6 +322,7 @@ HWND facebookLink = nullptr;
 HWND pauseOnStartupCheckbox = nullptr;
 HWND forceCursorVisibleCheckbox = nullptr;
 HWND disableCursorCaptureCheckbox = nullptr;
+HWND perfLogCheckbox = nullptr;
 HWND cutscene43Checkbox = nullptr;
 HWND smoothScrollCheckbox = nullptr;
 HWND languageCombo = nullptr;
@@ -432,6 +433,7 @@ void loadAndApplySettings()
   SendMessageA(pauseOnStartupCheckbox, BM_SETCHECK, settings.pauseOnStartup ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(forceCursorVisibleCheckbox, BM_SETCHECK, settings.forceCursorVisible ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(disableCursorCaptureCheckbox, BM_SETCHECK, settings.disableCursorCapture ? BST_CHECKED : BST_UNCHECKED, 0);
+  SendMessageA(perfLogCheckbox, BM_SETCHECK, settings.perfLog ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(cutscene43Checkbox, BM_SETCHECK, settings.cutscene43 ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(smoothScrollCheckbox, BM_SETCHECK, settings.smoothScroll ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(graphicsCombo, CB_SETCURSEL, !settings.graphicsPack ? 0 : (settings.graphicsStyle == 1 ? 2 : 1), 0);
@@ -620,6 +622,13 @@ LRESULT onDisableCursorCaptureCheckboxClicked(HWND hwnd, UINT message, WPARAM wP
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
 
+LRESULT onPerfLogCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  settings.perfLog = SendMessage(perfLogCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
+  settings.writeSettings();
+  return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
+}
+
 // Switching the language restarts the launcher, so every label is simply recreated in the new language.
 LRESULT onLanguageChanged(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -726,6 +735,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == pauseOnStartupCheckbox) return onPauseOnStartupCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == forceCursorVisibleCheckbox) return onForceCursorVisibleCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == disableCursorCaptureCheckbox) return onDisableCursorCaptureCheckboxClicked(hwnd, message, wParam, lParam);
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == perfLogCheckbox) return onPerfLogCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == moneyCheatCheckbox) return onMoneyCheatCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == largeFontCheckbox) return onLargeFontCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == shortcutButton) return OnShortcutClicked(hwnd, message, wParam, lParam);
@@ -1092,6 +1102,10 @@ int wmain(int argc, wchar_t* argv[])
     forceCursorVisibleCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Force cursor visible", L"Mauszeiger immer zeigen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
     y += rowH;
     disableCursorCaptureCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Disable cursor capture", L"Maus nicht einfangen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
+    y += rowH;
+    // Stutter log: slow frames + summary in data\emperor.txt (EmperorHooks/PerfLog.cpp), Ctrl+Shift+L = marker
+    perfLogCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Stutter log", L"Ruckel-Protokoll"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
+    CreateWindowEx(0, WC_STATIC, T(L"Ctrl+Shift+L = marker", L"Strg+Umschalt+L = Marke"), WS_CHILD | WS_VISIBLE, x + S(18), y + S(22), colRW - S(40), S(20), window, nullptr, nullptr, nullptr);
   }
 
   // --- Multiplayer (full width) ---

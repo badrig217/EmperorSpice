@@ -77,6 +77,8 @@ Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a.
 - Gemischte Gruppen: schnelle Einheiten rennen voraus, langsame drehen sich an Engstellen im Kreis.
 - Ruckler/Hänger, wenn große Gruppen Befehle bekommen und die Ziellinien („target lines“) gezeichnet werden. Bekannter Workaround: Ziellinien im Optionsmenü ausschalten.
 
+**Ruckel-Protokoll (gebaut 14.11., PR #12):** `EmperorHooks/PerfLog.cpp`, im Launcher unter „Fehlersuche“ → „Ruckel-Protokoll“ (Registry `PerfLog`, vorerst standardmäßig an). Misst in `EndScene` die Zeit zwischen zwei Bildern, nur in Missionen (Flag `0x817c0c`). Schreibt nach `data\emperor.txt`: jedes Bild über 100 ms (max. 20 Zeilen je 30 s, mit Hinweis, wenn das Spiel im Hintergrund war), alle 30 s eine Zusammenfassung (fps, langsamstes Bild, Ruckler > 50 ms, Hänger > 100 ms), Missionsstart/-ende und eine Marke per **Strg+Umschalt+L**. Ob die Ziellinien an sind, steht nicht im Log: Die Option `ShowTargetLines` liegt in einer Einstellungstabelle (Zugriff bei `0x4f729d`, `0x4beacb`), das ist noch nicht entschlüsselt. Deshalb im Test einmal mit und einmal ohne Ziellinien spielen.
+
 Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
 2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
