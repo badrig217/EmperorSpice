@@ -82,7 +82,7 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 
 ### Probleme?
 
-- **Das Spiel startet nicht / hängt:** Im Ordner `data` liegt die Protokolldatei `emperor.txt`. Hänge sie bei einem [Issue](../../issues) an.
+- **Das Spiel startet nicht / hängt:** Im Ordner `data` liegt die Protokolldatei `emperor.txt`. Hänge sie bei einem [Issue](../../issues) an. Fehlt sie, ist im Launcher unter „Fehlersuche“ der Haken „Protokoll (emperor.txt)“ aus: einschalten, Fehler nachstellen. Ohne den Haken wird nichts protokolliert.
 - **Warnung „Falsche Game.exe-Version“:** Die Installation ist nicht vollständig durchgelaufen oder es wurde ein anderer Patch verwendet. Im Dialog „Nein“ wählen, um neu zu installieren.
 - **Texte im Spiel sehr klein:** Im Launcher unter „Extras“ **„Große Meldungen und Hinweise im Spiel“** anhaken. Alternativ eine der Auflösungen „Hochskaliert …, große UI“ wählen (dann wird das ganze Bild weicher).
 - **Grafik-Paket ausprobieren ohne Risiko:** Im Launcher den Grafikstil „Original“ wählen – alles ist wie vorher.
@@ -130,7 +130,7 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 
 **Graphics pack:** choose the look in the launcher: Original, Modern (default) or HD (2x supersampling, bloom, stronger colours, CAS sharpening; needs a stronger GPU). Scroll Lock toggles the effects, Home opens the ReShade menu. Do **not** enable MSAA in dgVoodoo – the game hangs with it; anti-aliasing is done by ReShade (SMAA).
 
-**Problems?** Attach `data\emperor.txt` to an [issue](../../issues).
+**Problems?** Attach `data\emperor.txt` to an [issue](../../issues) (if it is missing, tick "Log file (emperor.txt)" under Troubleshooting and reproduce the problem).
 
 **Linux / Steam Deck / macOS (experimental):** Emperor Spice should start under Wine, Proton and CrossOver (e.g. via Heroic or Lutris). Untested – feedback welcome! Community tip: start the launcher with **Fullscreen off** at 1920 x 1080 and switch fullscreen on in Wine/Heroic afterwards.
 

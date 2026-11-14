@@ -69,6 +69,10 @@ public:
   // look for stutters; can be switched off under Troubleshooting.
   bool perfLog = true;
 
+  // Log file data\emperor.txt (hooks and game messages). On by default for now; players who don't want
+  // anything recorded can switch it off under Troubleshooting (then the stutter log is off too).
+  bool logFile = true;
+
   // Large in-game text: the game's two text fonts at 2x size (Emperor Spice HD fonts). Off by default.
   bool largeFont = false;
 
@@ -167,6 +171,10 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
+    std::optional<std::string> logFileTemp = regReadString(key, "LogFile");
+    if (logFileTemp)
+      logFile = *logFileTemp == "1";
+
     std::optional<std::string> perfLogTemp = regReadString(key, "PerfLog");
     if (perfLogTemp)
       perfLog = *perfLogTemp == "1";
@@ -214,6 +222,7 @@ public:
     regWriteString(key, "Mods", mods ? "1" : "0");
     regWriteString(key, "HDTextures", hdTextures ? "1" : "0");
     regWriteString(key, "PerfLog", perfLog ? "1" : "0");
+    regWriteString(key, "LogFile", logFile ? "1" : "0");
 
     RegCloseKey(key);
   }

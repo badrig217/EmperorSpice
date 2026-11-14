@@ -100,6 +100,7 @@ void runHooks()
 {
   Settings settings;
   settings.readSettings();
+  setLogToFile(settings.logFile); // before anything is logged
 
   if (settings.pauseOnStartup)
     MessageBoxA(nullptr, "Press OK to continue", "EmperorHooks", MB_OK);
@@ -137,7 +138,7 @@ void runHooks()
 
   // Optional single-player money cheat (polled from EndScene).
   initMoneyCheat(settings.moneyCheat);
-  initPerfLog(settings.perfLog);
+  initPerfLog(settings.perfLog && settings.logFile); // writes into emperor.txt, so only with the log on
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).
