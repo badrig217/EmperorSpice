@@ -32,7 +32,7 @@ namespace hdCore
 
   inline const char kHdMarker[] = "EmperorSpice\\HDTextures.txt";
   inline const char kModMarker[] = "EmperorSpice\\ModPack.txt";
-  inline const char kRecipeVersion[] = "HD textures v1 (icons 2x, units/buildings 2x + remaster, terrain 4x)";
+  inline const char kRecipeVersion[] = "HD textures v2 (icons 2x, units/buildings 2x + remaster, terrain 4x)";
 
   inline std::string lowerA(std::string s)
   {
@@ -285,7 +285,8 @@ namespace hdCore
     const int w = job.original.w, h = job.original.h;
     if (job.item.kind == KindIcon)
     {
-      if (w != 64 || h != 64) return false;
+      // Build icons are 64x64; a few are smaller (worm, Death Hand: 60x60, Guild Maker: 54x50).
+      if (w > 64 || h > 64 || std::min(w, h) < 32) return false;
       toUpscale = hdImage::descan(hdImage::rgbOf(job.original));
       return true;
     }
@@ -308,15 +309,15 @@ namespace hdCore
   inline Img finish(const Job& job, const Img& up4)
   {
     const int w = job.original.w, h = job.original.h;
-    if (job.item.kind == KindIcon)
-    {
-      Img out = hdImage::resizeLanczos(up4, 128, 128);
-      hdImage::clampTo8bit(out);
-      return out;
-    }
     Img rgb;
     int fw, fh;
-    if (job.item.kind == KindTerrain)
+    if (job.item.kind == KindIcon)
+    {
+      fw = 2 * w; fh = 2 * h; // 64 -> 128
+      rgb = hdImage::resizeLanczos(up4, fw, fh);
+      hdImage::clampTo8bit(rgb);
+    }
+    else if (job.item.kind == KindTerrain)
     {
       rgb = hdImage::crop(up4, 4 * job.pad, 4 * job.pad, 4 * w, 4 * h);
       rgb = hdImage::dampSandLines(rgb);
@@ -333,7 +334,7 @@ namespace hdCore
       hdImage::clampTo8bit(rgb);
       hdImage::restoreHouseColour(rgb, job.original);
     }
-    std::vector<uint8_t> keyF = hdImage::scaleMask(job.key, w, h, fw, fh);
+    std::vector<uint8_t> keyF = job.key.empty() ? std::vector<uint8_t>() : hdImage::scaleMask(job.key, w, h, fw, fh);
     for (size_t i = 0; i < keyF.size(); i++)
       if (keyF[i]) { rgb.d[i * 3] = 255; rgb.d[i * 3 + 1] = 0; rgb.d[i * 3 + 2] = 255; }
     if (!job.hasAlpha) return rgb;

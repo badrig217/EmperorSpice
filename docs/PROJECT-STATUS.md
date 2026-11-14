@@ -46,12 +46,12 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 
 **Ablauf** (`EmperorLauncher/TextureWorkshop.*`, `HdWorkshopCore.hpp`, `HdImage.hpp`, `TextureWorkshopUi.hpp`):
 - Liest alle `Textures\*.tga` aus den 3DDATA-Archiven (je Name die neueste; Archive mit Mod- oder HD-Markierung zählen nicht) und die Bodentextur-Liste aus den `test.xbf` der Karten (MAPS-Archive).
-- Sortiert: Icons (64×64 mit `Grey_`-Gegenstück) → Effekte (auslassen: `!`, `@`, `%` am Anfang, flash/spot/halo/beam/glow/muzzle) → Boden → Modell-Texturen. Ausgelassen: kleiner als 16 oder größer als 256 px, nur Magenta, Palettenbilder.
+- Sortiert: Icons (mit `Grey_`-Gegenstück, meist 64×64, dazu Wurm/Todeshand 60×60 und Guild Maker 54×50) → Effekte (auslassen: `!`, `@`, `%` am Anfang, flash/spot/halo/beam/glow/muzzle) → Boden → Modell-Texturen. Ausgelassen: kleiner als 16 oder größer als 256 px (`ground.tga` = Kampagnen-Karte, `ring1_512.tga` = Oberfläche der Kampagnenkarte, `arrw_nw.tga` = Sammelbild mit Pfeilen/Markierungen), 8×8-Farbfelder, nur Magenta, ein Palettenbild.
 - In Paketen zu 48 Stück: Vorbereiten → `hdtools\realesrgan-ncnn-vulkan.exe` (ohne Fenster, Ausgabe in `hdtextures\realesrgan.log`) → Nachbearbeitung in bis zu 4 Threads → direkt ins Archiv schreiben (wenig Speicher, der Launcher ist 32 Bit).
 - Ergebnis: `<Spiel>\hdtextures\3DDATA_HD.RFH/.RFD` mit Markierung `EmperorSpice\HDTextures.txt`, ca. 400 MB. Beim „Spielen“ mit Häkchen wird es als nächstes freies `3DDATA00xx` nach DATA verschoben, ohne Häkchen wieder heraus (dahinterliegende Archive rücken nach). Mods gewinnen weiter, weil ihre Einträge neuer sind.
 
 **Rezepte** (aus den Test-Mods, im Spiel getestet):
-- **Icons:** Scanlines entfernen (vertikaler [1,2,1]/4-Filter), Real-ESRGAN x4plus 4-fach, Lanczos auf 128 px. Gefiel besser als 3D-Neu-Rendern.
+- **Icons:** Scanlines entfernen (vertikaler [1,2,1]/4-Filter), Real-ESRGAN x4plus 4-fach, Lanczos auf doppelte Größe (128 px). Gefiel besser als 3D-Neu-Rendern.
 - **Texturen:** Magenta mit Nachbarfarben füllen → Real-ESRGAN 4-fach → „Remaster dezent“ (Relief 0.45, Staub 0.6, Kanten 0.6, Struktur 0.8) → Lanczos auf **2-fach** (4-fach treppte; Mipmaps waren nicht die Ursache) → **Hausfarbe** zurück: Pixel, die im Original reines Blau sind (R=G=0), werden wieder exakt reines Blau in den Original-Stufen, sonst färbt das Spiel sie nicht in der Spielerfarbe → Magenta-Schlüssel exakt zurück (erst ganz am Ende, so gibt es keine rosa Ränder) → Alpha aus dem Original hochskaliert.
 - **Boden** (176 Texturen, gekachelt): Wrap-Padding, Real-ESRGAN **4-fach, ohne Remaster**, zuschneiden, feine dunkle Linien nur in glatten Sandflächen dämpfen (sonst Linienraster auf Sandrampen). Fels, Klippen, Eis bleiben.
 
