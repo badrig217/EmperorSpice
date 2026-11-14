@@ -67,6 +67,22 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 3. **Technik:** Der Launcher soll beim ersten Start die Monitorauflösung vorschlagen statt 1280×720. Das ist klein und wirkt groß. Außerdem Multiplayer ohne Portfreigabe (schwer: Vermittlungsserver oder ZeroTier/Tailscale) und Speicherstände in „Dokumente“.
 4. **Gefühl:** Effekte und Stimmung (zum Teil schon im HD-Preset).
 
+### Für später notiert (14.11.)
+- **Große Oberflächen-Texturen** mitnehmen, wenn Seitenleiste/Menüs drankommen: `ground.tga` (512×512, gemalter Sand/Fels, vermutlich Hintergrund der Kampagnenkarte) und `ring1_512.tga` (512×512, Oberfläche der Kampagnenkarte mit Bogen, Kugeln, Schriftzug „CAMPAIGN MAP“). Schrift braucht eine eigene Behandlung, die KI verschmiert sie. `arrw_nw.tga` (384×1584, Sammelbild mit Pfeilen/Markierungen auf Magenta) bleibt pixelgenau original.
+
+### Problem des Originals: Wegfindung (gemeldet vom Projektinhaber, 14.11., noch nicht untersucht)
+Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a. auf FED2k), also noch nicht bestätigt. Beschriebene Probleme:
+- Große Einheiten (z. B. Minotaurus der Atreides) bleiben an kleinen Hindernissen hängen, drehen kurz vor dem Ziel um oder laufen in die falsche Richtung.
+- Sammler blockieren sich an Raffinerien und schmalen Klippenrampen.
+- Gemischte Gruppen: schnelle Einheiten rennen voraus, langsame drehen sich an Engstellen im Kreis.
+- Ruckler/Hänger, wenn große Gruppen Befehle bekommen und die Ziellinien („target lines“) gezeichnet werden. Bekannter Workaround: Ziellinien im Optionsmenü ausschalten.
+
+Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
+1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
+2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
+3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
+4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
+
 ### Ausprobiert und verworfen
 - Bodentexturen der Karten hochrechnen: Das Spiel lädt `test.tga` zwar in jeder Größe, aber man sieht keinen Unterschied (siehe reverse-engineering.md).
 - Icons 2x hochrechnen: kaum besser, die Vorlage hat nur 64 px.
