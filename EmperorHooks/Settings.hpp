@@ -65,13 +65,10 @@ public:
   // Single-player money cheat (Ctrl+Shift+M = +25,000 credits). Off by default, never active in multiplayer.
   bool moneyCheat = false;
 
-  // Stutter log: slow frames and a summary in data\emperor.txt (PerfLog.cpp). On by default for now, while we
-  // look for stutters; can be switched off under Troubleshooting.
-  bool perfLog = true;
-
-  // Log file data\emperor.txt (hooks and game messages). On by default for now; players who don't want
-  // anything recorded can switch it off under Troubleshooting (then the stutter log is off too).
-  bool logFile = true;
+  // Debug log: data\emperor.txt with everything we record - game messages, system profile, crash report,
+  // hang watchdog, memory, stutters (PerfLog), texture loads until the first mission - plus launcher.txt.
+  // Off = nothing is written. On by default for now while we test; decide before the release.
+  bool debugLog = true;
 
   // Large in-game text: the game's two text fonts at 2x size (Emperor Spice HD fonts). Off by default.
   bool largeFont = false;
@@ -171,13 +168,11 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
-    std::optional<std::string> logFileTemp = regReadString(key, "LogFile");
-    if (logFileTemp)
-      logFile = *logFileTemp == "1";
-
-    std::optional<std::string> perfLogTemp = regReadString(key, "PerfLog");
-    if (perfLogTemp)
-      perfLog = *perfLogTemp == "1";
+    std::optional<std::string> debugLogTemp = regReadString(key, "DebugLog");
+    if (!debugLogTemp)
+      debugLogTemp = regReadString(key, "LogFile"); // earlier test builds: "Log file" box
+    if (debugLogTemp)
+      debugLog = *debugLogTemp == "1";
 
     std::optional<std::string> hdTexturesTemp = regReadString(key, "HDTextures");
     if (hdTexturesTemp)
@@ -221,8 +216,7 @@ public:
     regWriteString(key, "LargeFont", largeFont ? "1" : "0");
     regWriteString(key, "Mods", mods ? "1" : "0");
     regWriteString(key, "HDTextures", hdTextures ? "1" : "0");
-    regWriteString(key, "PerfLog", perfLog ? "1" : "0");
-    regWriteString(key, "LogFile", logFile ? "1" : "0");
+    regWriteString(key, "DebugLog", debugLog ? "1" : "0");
 
     RegCloseKey(key);
   }

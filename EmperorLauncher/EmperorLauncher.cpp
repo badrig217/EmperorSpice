@@ -23,6 +23,7 @@
 #include "FontPack.hpp"
 #include "ModPack.hpp"
 #include "TextureWorkshopUi.hpp"
+#include "LauncherLog.hpp"
 #include "Shortcut.hpp"
 #include "IsoReader.hpp"
 #include <commdlg.h>
@@ -322,8 +323,7 @@ HWND facebookLink = nullptr;
 HWND pauseOnStartupCheckbox = nullptr;
 HWND forceCursorVisibleCheckbox = nullptr;
 HWND disableCursorCaptureCheckbox = nullptr;
-HWND perfLogCheckbox = nullptr;
-HWND logFileCheckbox = nullptr;
+HWND debugLogCheckbox = nullptr;
 HWND cutscene43Checkbox = nullptr;
 HWND smoothScrollCheckbox = nullptr;
 HWND languageCombo = nullptr;
@@ -339,6 +339,9 @@ HWND modsCheckbox = nullptr;
 HWND modsFolderButton = nullptr;
 HWND hdTexturesCheckbox = nullptr;
 HWND hdTexturesButton = nullptr;
+
+// Shown in the launcher and written to the debug logs. Bump together with package.ps1 -Version.
+const wchar_t kLauncherVersion[] = L"v1.1";
 
 // Game folder (contains DATA); set in wmain. The HD texture workshop works there.
 std::filesystem::path gGameDir;
@@ -385,7 +388,11 @@ bool generateHdTextures()
   if (MessageBoxW(window, question.c_str(), T(L"Graphics workshop", L"Grafik-Werkstatt"), MB_YESNO | MB_ICONQUESTION) != IDYES)
     return false;
 
+  launcherLog::write("Graphics workshop: generating HD textures");
+  const DWORD started = GetTickCount();
   std::wstring error = hdTexturesUi::run(window, gUiFont, S, hdToolDir(), gGameDir);
+  launcherLog::write("Graphics workshop: %s after %lu s", error.empty() ? "done" : launcherLog::utf8(error).c_str(),
+                     (GetTickCount() - started) / 1000);
   refreshHdTexturesButton();
   if (error == L"cancelled")
     return false;
@@ -434,9 +441,7 @@ void loadAndApplySettings()
   SendMessageA(pauseOnStartupCheckbox, BM_SETCHECK, settings.pauseOnStartup ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(forceCursorVisibleCheckbox, BM_SETCHECK, settings.forceCursorVisible ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(disableCursorCaptureCheckbox, BM_SETCHECK, settings.disableCursorCapture ? BST_CHECKED : BST_UNCHECKED, 0);
-  SendMessageA(perfLogCheckbox, BM_SETCHECK, settings.perfLog ? BST_CHECKED : BST_UNCHECKED, 0);
-  SendMessageA(logFileCheckbox, BM_SETCHECK, settings.logFile ? BST_CHECKED : BST_UNCHECKED, 0);
-  EnableWindow(perfLogCheckbox, settings.logFile); // the stutter log writes into the log file
+  SendMessageA(debugLogCheckbox, BM_SETCHECK, settings.debugLog ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(cutscene43Checkbox, BM_SETCHECK, settings.cutscene43 ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(smoothScrollCheckbox, BM_SETCHECK, settings.smoothScroll ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(graphicsCombo, CB_SETCURSEL, !settings.graphicsPack ? 0 : (settings.graphicsStyle == 1 ? 2 : 1), 0);
@@ -625,18 +630,12 @@ LRESULT onDisableCursorCaptureCheckboxClicked(HWND hwnd, UINT message, WPARAM wP
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
 
-LRESULT onLogFileCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT onDebugLogCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-  settings.logFile = SendMessage(logFileCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
-  EnableWindow(perfLogCheckbox, settings.logFile);
+  settings.debugLog = SendMessage(debugLogCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
   settings.writeSettings();
-  return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
-}
-
-LRESULT onPerfLogCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-  settings.perfLog = SendMessage(perfLogCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
-  settings.writeSettings();
+  launcherLog::open(gGameDir, settings.debugLog); // off: launcher.txt is removed right away
+  launcherLog::write("Debug log switched on");
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
 
@@ -746,8 +745,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == pauseOnStartupCheckbox) return onPauseOnStartupCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == forceCursorVisibleCheckbox) return onForceCursorVisibleCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == disableCursorCaptureCheckbox) return onDisableCursorCaptureCheckboxClicked(hwnd, message, wParam, lParam);
-  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == logFileCheckbox) return onLogFileCheckboxClicked(hwnd, message, wParam, lParam);
-  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == perfLogCheckbox) return onPerfLogCheckboxClicked(hwnd, message, wParam, lParam);
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == debugLogCheckbox) return onDebugLogCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == moneyCheatCheckbox) return onMoneyCheatCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == largeFontCheckbox) return onLargeFontCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == shortcutButton) return OnShortcutClicked(hwnd, message, wParam, lParam);
@@ -925,6 +923,13 @@ int wmain(int argc, wchar_t* argv[])
   else
     installDirUnicode = getFolderThisExeIsIn() + L"\\data";
   gGameDir = installDirUnicode;
+  launcherLog::open(gGameDir, settings.debugLog);
+  launcherLog::write("Emperor Spice launcher %s", launcherLog::utf8(kLauncherVersion).c_str());
+  launcherLog::write("Launcher folder: %s", launcherLog::utf8(getFolderThisExeIsIn()).c_str());
+  launcherLog::write("Game folder: %s", launcherLog::utf8(installDirUnicode).c_str());
+  // the game's debug log reads it from here for its system profile
+  RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\WestwoodRedirect\\Emperor\\LauncherCustomSettings", L"LauncherVersion", REG_SZ,
+                  kLauncherVersion, DWORD((wcslen(kLauncherVersion) + 1) * sizeof(wchar_t)));
 
   // This is unfortunate, but I just don't want to deal with debugging it.
   // Pretty sure the base game won't work anyway, even if I fix my code.
@@ -941,6 +946,7 @@ int wmain(int argc, wchar_t* argv[])
 
   std::string installDir = *wideToAscii(installDirUnicode);
   std::string gameExeMd5 = getMd5OfFile(installDir + "\\Game.exe");
+  launcherLog::write("Game.exe MD5: %s", gameExeMd5.empty() ? "(not found)" : gameExeMd5.c_str());
   std::string_view desiredMd5 = "7dc4fda2f6b7e8a6b70e846686a81938";
 
   if (gameExeMd5.empty())
@@ -1115,11 +1121,9 @@ int wmain(int argc, wchar_t* argv[])
     y += rowH;
     disableCursorCaptureCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Disable cursor capture", L"Maus nicht einfangen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
     y += rowH;
-    // Log file data\emperor.txt (EmperorHooks/Log.cpp). Off = nothing is recorded, an old file is deleted.
-    logFileCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Log file (emperor.txt)", L"Protokoll (emperor.txt)"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-    // Stutter log: slow frames + summary in data\emperor.txt (EmperorHooks/PerfLog.cpp), Ctrl+Shift+L = marker
-    perfLogCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Stutter log", L"Ruckel-Protokoll"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
+    // Debug log: data\emperor.txt + launcher.txt with everything we record (EmperorHooks/DebugLog.cpp,
+    // PerfLog.cpp, TextureTrace.cpp, LauncherLog.hpp). Off = nothing is recorded, old files are deleted.
+    debugLogCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Debug log", L"Debug-Log"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
     CreateWindowEx(0, WC_STATIC, T(L"Ctrl+Shift+L = marker", L"Strg+Umschalt+L = Marke"), WS_CHILD | WS_VISIBLE, x + S(18), y + S(22), colRW - S(40), S(20), window, nullptr, nullptr, nullptr);
   }
 
@@ -1167,7 +1171,7 @@ int wmain(int argc, wchar_t* argv[])
 
   // --- Footer: version + credits (links open in the browser) ---
   int footY = playY + S(58);
-  HWND versionLabel = CreateWindowEx(0, WC_STATIC, L"Emperor Spice v1.1", WS_CHILD | WS_VISIBLE, colL, footY, S(200), S(20), window, nullptr, nullptr, nullptr);
+  HWND versionLabel = CreateWindowEx(0, WC_STATIC, (std::wstring(L"Emperor Spice ") + kLauncherVersion).c_str(), WS_CHILD | WS_VISIBLE, colL, footY, S(200), S(20), window, nullptr, nullptr, nullptr);
   githubLink = CreateWindowEx(0, WC_STATIC, T(L"Based on Emperor Reborn by azmawee", L"Basiert auf Emperor Reborn von azmawee"), WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(22), S(330), S(20), window, nullptr, nullptr, nullptr);
   facebookLink = CreateWindowEx(0, WC_STATIC, L"github.com/badrig217/EmperorSpice", WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(42), S(330), S(20), window, nullptr, nullptr, nullptr);
   int clientH = footY + S(70);
@@ -1223,11 +1227,15 @@ int wmain(int argc, wchar_t* argv[])
     // The fixed presets are all 4:3, which the game expects. Picking a low one avoids locking to
     // the (often very high) desktop resolution, which makes the in-game fonts unreadably small.
     writeGraphicsSettings(gameWidth, gameHeight);
+    launcherLog::write("Play: game resolution %dx%d, fullscreen %d, graphics pack %d (style %d), large font %d, mods %d, HD textures %d",
+                       gameWidth, gameHeight, int(settings.fullscreen), int(settings.graphicsPack), settings.graphicsStyle,
+                       int(settings.largeFont), int(settings.mods), int(settings.hdTextures));
 
     // Install or remove the graphics pack (dgVoodoo2 + ReShade) in the game folder.
     std::wstring packError = graphicsPack::apply(std::filesystem::path(getFolderThisExeIsIn()) / L"graphics",
                                                  std::filesystem::path(installDirUnicode), settings.graphicsPack,
                                                  settings.graphicsStyle == 1);
+    launcherLog::write("Graphics pack: %s", packError.empty() ? "ok" : launcherLog::utf8(packError).c_str());
     if (!packError.empty())
       MessageBoxW(nullptr, (T(L"The graphics pack could not be set up - the game starts without it.\n\n",
                               L"Das Grafik-Paket konnte nicht eingerichtet werden - das Spiel startet ohne.\n\n") + packError).c_str(),
@@ -1239,6 +1247,7 @@ int wmain(int argc, wchar_t* argv[])
     {
       std::wstring fontError = fontPack::install(std::filesystem::path(getFolderThisExeIsIn()) / L"fonts",
                                                  std::filesystem::path(installDirUnicode) / L"DATA");
+      launcherLog::write("Large fonts: %s", fontError.empty() ? "ok" : launcherLog::utf8(fontError).c_str());
       if (!fontError.empty())
         MessageBoxW(nullptr, (T(L"The large fonts could not be installed - the game starts with the normal text size.\n\n",
                                 L"Die gro\u00dfe Schrift konnte nicht eingerichtet werden - das Spiel startet mit normaler Schrift.\n\n") + fontError).c_str(),
@@ -1249,6 +1258,9 @@ int wmain(int argc, wchar_t* argv[])
     {
       modPack::Result modResult = modPack::apply(std::filesystem::path(getFolderThisExeIsIn()) / L"mods",
                                                  std::filesystem::path(installDirUnicode) / L"DATA", settings.mods);
+      launcherLog::write("Mods: %d files, %s%s%s", modResult.fileCount,
+                         modResult.error.empty() ? "ok" : launcherLog::utf8(modResult.error).c_str(),
+                         modResult.warnings.empty() ? "" : ", skipped: ", launcherLog::utf8(modResult.warnings).c_str());
       if (!modResult.error.empty())
         MessageBoxW(nullptr, (T(L"The mods could not be set up - the game may start without them.\n\n",
                                 L"Die Mods konnten nicht eingerichtet werden - das Spiel startet eventuell ohne.\n\n") + modResult.error).c_str(),
@@ -1263,6 +1275,7 @@ int wmain(int argc, wchar_t* argv[])
     // archive number comes after the mods; mod files still win because they are newer.
     {
       std::wstring hdError = hdTextures::apply(std::filesystem::path(installDirUnicode), settings.hdTextures);
+      launcherLog::write("HD textures %s: %s", settings.hdTextures ? "on" : "off", hdError.empty() ? "ok" : launcherLog::utf8(hdError).c_str());
       if (!hdError.empty())
         MessageBoxW(nullptr, (T(L"The HD textures could not be switched - the game may start with the original textures.\n\n",
                                 L"Die HD-Texturen konnten nicht umgeschaltet werden - das Spiel startet eventuell mit den Original-Texturen.\n\n") + hdError).c_str(),
@@ -1271,12 +1284,14 @@ int wmain(int argc, wchar_t* argv[])
 
     createGlobalCommsFileMappingHandle();
 
+    launcherLog::write("Starting Game.exe");
     PROCESS_INFORMATION runGameData = runGameExe();
 
     sendEmperorDatDataToGameProcessViaAnonymousMapping(runGameData.hProcess, runGameData.dwThreadId);
 
     DWORD ExitCode = 0;
     waitForExit(&runGameData, &ExitCode);
+    launcherLog::write("Game.exe ended, exit code 0x%08lX", ExitCode);
 
     closeGlobalCommsHandle();
 

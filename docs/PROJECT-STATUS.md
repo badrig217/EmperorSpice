@@ -92,6 +92,12 @@ Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a.
 
 **Protokoll abschaltbar (14.11., PR #12):** Haken „Protokoll (emperor.txt)“ unter „Fehlersuche“ (Registry `LogFile`, vorerst an). Aus = es wird nichts auf die Platte geschrieben, ein altes `emperor.txt` wird gelöscht, das Ruckel-Protokoll ist dann auch aus (ausgegraut). Wunsch des Projektinhabers: Für das fertige Release soll Protokollieren optional sein, weil Spieler das nicht mögen. **Vor dem Release entscheiden, ob beides standardmäßig aus sein soll** (dann bei Problemen: „Haken setzen, Fehler nachstellen, emperor.txt schicken“).
 
+**Debug-Log (15.11., PR #12):** Ein Haken „Debug-Log“ unter „Fehlersuche“ ersetzt „Protokoll“ und „Ruckel-Protokoll“ (Registry `DebugLog`, übernimmt den alten Wert `LogFile`; vorerst standardmäßig an). Aus = nichts wird geschrieben, alte Dateien werden gelöscht. An = alles:
+- `emperor.txt`: Uhrzeit vor jeder Zeile; Steckbrief beim Start (Launcher-Version, Windows/Wine, CPU, RAM, Grafikkarte + Treiber, Desktop-Modus, alle Launcher-Einstellungen, Game.exe, Archive in DATA mit Kennzeichnung [mods]/[HD textures]/[HD fonts], Speicher); Spielmeldungen; Ruckler (PerfLog); geladene Texturen bis zur ersten Mission (TextureTrace); Speicher alle 60 s und beim Missionsstart (genutzt, freier Adressraum, größter freier Block); **Hänger-Wächter** (15 s kein Bild und keine Logzeile → Stelle im Hauptthread mit Aufrufkette, bis zu 6 Meldungen); **Absturz-Bericht** (Ausnahme, Modul+Offset, Register, Aufrufkette) und `emperor_crash.dmp` (Minidump). Code: `EmperorHooks/DebugLog.cpp`, `Log.cpp`.
+- `launcher.txt` (`EmperorLauncher/LauncherLog.hpp`): Version, Ordner, Game.exe-MD5, Einstellungen beim Spielen, Ergebnis von Grafik-Paket/Schrift/Mods/HD-Texturen, Grafik-Werkstatt (Dauer, Fehler), Start und Exit-Code von Game.exe.
+- Unter Wine getestet: Steckbrief, Hänger-Meldung mit richtiger Aufrufkette, Absturz-Bericht mit Dump.
+- Karte und Spieler stehen schon in den Spielmeldungen („Map: …“, „gSetupInit list…“).
+
 Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
 2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
