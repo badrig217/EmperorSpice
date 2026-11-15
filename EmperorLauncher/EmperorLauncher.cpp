@@ -342,6 +342,7 @@ const int cameraZoomSteps[] = { 100, 125, 150, 175 };
 HWND shortcutButton = nullptr;
 HWND moneyCheatCheckbox = nullptr;
 HWND groupMoveCheckbox = nullptr;
+HWND mpSettingsLabel = nullptr;
 HWND largeFontCheckbox = nullptr;
 HWND modsCheckbox = nullptr;
 HWND modsFolderButton = nullptr;
@@ -449,6 +450,15 @@ void refreshStatus()
     text += std::wstring(L"  \u00b7  ") + T(L"Multiplayer: client", L"Mehrspieler: Client");
   SetWindowTextW(statusLabel, text.c_str());
   refreshHdTexturesStatus();
+
+  // Multiplayer page: what all players need to have the same (otherwise the games drift apart)
+  if (mpSettingsLabel)
+  {
+    std::wstring mp = std::wstring(kLauncherVersion) + L"\n" +
+                      T(L"Group movement: ", L"Gruppenbewegung: ") + (settings.groupMove ? T(L"on", L"an") : T(L"off", L"aus")) + L"\n" +
+                      T(L"Mods: ", L"Mods: ") + (settings.mods ? T(L"on (everyone needs the same mods)", L"an (alle brauchen dieselben Mods)") : T(L"off", L"aus"));
+    SetWindowTextW(mpSettingsLabel, mp.c_str());
+  }
 }
 
 void refreshHdTexturesButton()
@@ -1323,6 +1333,13 @@ int wmain(int argc, wchar_t* argv[])
                                               S(descX), S(260), S(300), S(26), window, nullptr, nullptr, nullptr));
     gThemedNative.push_back(serverAddressTextbox);
     testNetworkButton = button(T(L"Test connection", L"Verbindung testen"), descX + 312, 258, 180);
+
+    heading(T(L"Must be the same for all players", L"Muss bei allen Spielern gleich sein"), 320);
+    mpSettingsLabel = label(L"", descX, 352, descW, 66);
+    muted(T(L"If these differ, the games drift apart. Graphics, zoom, fonts and HD textures are up to each player.",
+            L"Weichen sie ab, laufen die Spiele auseinander. Grafik, Zoom, Schrift und HD-Texturen darf jeder selbst w\u00e4hlen."),
+          descX, 424, descW, 40);
+    muted(T(L"The money cheat is never active in multiplayer.", L"Der Geld-Cheat ist im Mehrspieler nie aktiv."), descX, 466, descW, 20);
   }
 
   // --- Mods & extras -----------------------------------------------------------------------------

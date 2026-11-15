@@ -8,6 +8,12 @@
 #include <unordered_map>
 #include <vector>
 #include <detours.h>
+#ifdef _MSC_VER
+#include <intrin.h>
+#define CALLER_ADDRESS() reinterpret_cast<uintptr_t>(_ReturnAddress())
+#else
+#define CALLER_ADDRESS() reinterpret_cast<uintptr_t>(__builtin_return_address(0))
+#endif
 #include "GroupMove.hpp"
 #include "GameMessage.hpp"
 #include "Log.hpp"
@@ -31,8 +37,10 @@
 //         the same on every machine of a multiplayer game.
 // Everything runs on the game thread (executor, move step, GetSpeed, frame hook).
 // Multiplayer-safe by design: all decisions depend only on game frames, unit data and command order (no
-// wall clock, no own randomness, ordered containers where iteration matters). Wall-clock time is only
-// used for log lines. It is still switched off in multiplayer until all players' settings are checked.
+// wall clock, no own randomness, ordered containers where iteration matters), and it acts on every human
+// player's orders (not only the local player's), so every machine changes the same orders. Wall-clock time
+// is only used for log lines. All players need the same setting (shown on the launcher's multiplayer
+// page); the in-game hotkey is disabled in multiplayer, because it would switch only one machine.
 namespace
 {
   const uintptr_t kExecVa = 0x004c3900;
@@ -42,6 +50,10 @@ namespace
   const uintptr_t kGetSpeedVa = 0x00564d30;
   const uint8_t kGetSpeedOrig[] = { 0x51, 0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x70 };
   const uintptr_t kMoveStepVa = 0x00562f00;
+  // Return address of "call 0x4c3900" in the command queue (0x50a280): orders of human players, ours and
+  // the other players' from the network, executed in the same frame on every machine. The AI executes
+  // its orders immediately from other places and is left alone.
+  const uintptr_t kQueueCallReturn = 0x0050a285;
   const uint8_t kMoveStepOrig[] = { 0x6A, 0xFF, 0x68, 0x76, 0xC6, 0x5C, 0x00 };
 
   const float kTile = 32.0f;
@@ -110,12 +122,6 @@ namespace
   {
     void* s = setup();
     return s && reinterpret_cast<int(__thiscall*)(void*)>(0x005344e0)(s) != 3;
-  }
-
-  int playerSide()
-  {
-    void* s = setup();
-    return s ? reinterpret_cast<int(__thiscall*)(void*)>(0x005356a0)(s) : -1;
   }
 
   uintptr_t findObject(int* id)
@@ -269,6 +275,7 @@ namespace
 
   void __cdecl myExec(uint8_t* p)
   {
+    bool fromQueue = CALLER_ADDRESS() == kQueueCallReturn;
     if (!p || !inMission())
     {
       realExec(p);
@@ -295,7 +302,11 @@ namespace
         }
       }
 
-    if (type != 0 || n < 2 || (!gOn && !gMeasure) || !singlePlayer() || side != playerSide())
+    if (gMeasure && fromQueue) // command log (debug log): players' orders in execution order
+      Log("Befehl Tick %d: Typ %d, Seite %d, %d Einheiten, Ziel %d,%d\n", gameFrame(), type, side, n,
+          int(at<float>(reinterpret_cast<uintptr_t>(p), 0x14) / kTile), int(at<float>(reinterpret_cast<uintptr_t>(p), 0x1c) / kTile));
+
+    if (type != 0 || n < 2 || (!gOn && !gMeasure) || !fromQueue)
     {
       realExec(p);
       return;
@@ -500,16 +511,17 @@ void groupMoveUpdateFrame()
   bool down = keyDown();
   if (down && !gKeyWasDown && mission)
   {
-    gOn = !gOn;
-    if (!gOn)
-      gCap.clear();
     bool de = gameMessageGerman();
-    if (!singlePlayer())
-      showGameMessage(de ? "Gruppenbewegung: im Mehrspieler nicht verfuegbar" : "Group movement: not available in multiplayer");
-    else if (gOn)
-      showGameMessage(de ? "Gruppenbewegung: AN" : "Group movement: ON");
+    if (!singlePlayer()) // a local switch would change only this machine's game
+      showGameMessage(de ? "Gruppenbewegung: im Mehrspieler nur ueber den Launcher (alle gleich)"
+                         : "Group movement: in multiplayer only via the launcher (same for all)");
     else
-      showGameMessage(de ? "Gruppenbewegung: AUS" : "Group movement: OFF");
+    {
+      gOn = !gOn;
+      if (!gOn)
+        gCap.clear();
+      showGameMessage(gOn ? (de ? "Gruppenbewegung: AN" : "Group movement: ON") : (de ? "Gruppenbewegung: AUS" : "Group movement: OFF"));
+    }
   }
   gKeyWasDown = down;
 }

@@ -34,6 +34,10 @@
 //                                                    new order or destroyed; written 10 s later)
 //   Stau-Lage: every 10 s while anything is stuck: count, area, most blocked fields with their blockers
 //   Stau-Minute: every minute: totals
+//   Sync Tick <n>: <checksum> (<objects>)  every 150 game frames: checksum over every object on the map
+//     (id and position), taken at the first move step of that frame. In a multiplayer game all machines
+//     must log the same values for the same tick; the first differing tick shows when the games drifted
+//     apart (compare the players' emperor.txt).
 namespace
 {
   const uintptr_t kMoveStepVa = 0x00562f00;
@@ -66,6 +70,58 @@ namespace
   DWORD minuteStart = 0, lastOverview = 0, lastCleanup = 0;
   int reportsThisMinute = 0, suppressedThisMinute = 0, freedThisMinute = 0, gaveUpThisMinute = 0;
   int playerSide = -2; // -2 = not asked yet
+  int lastSyncFrame = -1;
+  const int kSyncEvery = 150;
+
+  int gameFrame()
+  {
+    uintptr_t net = *reinterpret_cast<uintptr_t volatile*>(0x007cb9d4);
+    return net ? *reinterpret_cast<int volatile*>(net + 0x14) : -1;
+  }
+
+  // FNV-1a over all objects on the map tiles. Direct reads: called on the game thread inside a move step,
+  // where the map and the objects are valid; every index and count is range-checked.
+  void syncCheck(int frame)
+  {
+    uintptr_t world = *reinterpret_cast<uintptr_t*>(0x00817c00);
+    uintptr_t table = *reinterpret_cast<uintptr_t*>(0x00b7d130);
+    if (!world || !table)
+      return;
+    int w = *reinterpret_cast<int*>(world + 0xa270), h = *reinterpret_cast<int*>(world + 0xa274);
+    uintptr_t tiles = *reinterpret_cast<uintptr_t*>(world + 0xa278);
+    if (!tiles || w <= 0 || h <= 0 || w > 1024 || h > 1024)
+      return;
+    uint32_t hash = 2166136261u;
+    auto mix = [&](uint32_t v) {
+      for (int i = 0; i < 4; i++) { hash ^= (v >> (i * 8)) & 0xff; hash *= 16777619u; }
+    };
+    int objects = 0;
+    for (int y = 0; y < h; y++)
+    {
+      int rowStart = *reinterpret_cast<int*>(0x00880058 + uintptr_t(y) * 4);
+      for (int x = 0; x < w; x++)
+      {
+        uintptr_t tile = tiles + uintptr_t(rowStart + x) * 8;
+        int count = *reinterpret_cast<uint8_t*>(tile) & 0xf;
+        const int16_t* idxs = *reinterpret_cast<int16_t**>(tile + 4);
+        if (!count || !idxs)
+          continue;
+        for (int i = 0; i < count; i++)
+        {
+          int idx = idxs[i];
+          if (idx < 0 || idx > 0x7fff) continue;
+          uintptr_t obj = *reinterpret_cast<uintptr_t*>(table + uintptr_t(idx) * 16 + 4);
+          if (!obj) continue;
+          mix(uint32_t(x | (y << 16)));
+          mix(*reinterpret_cast<uint32_t*>(obj + 4));    // object id
+          mix(*reinterpret_cast<uint32_t*>(obj + 0x14)); // x (float bits)
+          mix(*reinterpret_cast<uint32_t*>(obj + 0x1c)); // z
+          objects++;
+        }
+      }
+    }
+    Log("Sync Tick %d: %08X (%d Objekte)\n", frame, hash, objects);
+  }
 
   template <class T> bool rd(uintptr_t addr, T& out)
   {
@@ -300,6 +356,12 @@ namespace
   {
     // Position before the step: the step could in theory remove the unit, so it is not touched afterwards
     // (one tick of lag does not matter for an 8 second threshold).
+    int frame = gameFrame();
+    if (frame >= 0 && frame != lastSyncFrame && frame % kSyncEvery == 0)
+    {
+      lastSyncFrame = frame;
+      syncCheck(frame);
+    }
     uintptr_t unit = reinterpret_cast<uintptr_t>(self);
     const float* pos = reinterpret_cast<const float*>(unit + 0x14);
     float x = pos[0], z = pos[2];
