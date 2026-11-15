@@ -33,7 +33,7 @@ namespace hdCore
 
   inline const char kHdMarker[] = "EmperorSpice\\HDTextures.txt";
   inline const char kModMarker[] = "EmperorSpice\\ModPack.txt";
-  inline const char kRecipeVersion[] = "HD textures v3 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts)";
+  inline const char kRecipeVersion[] = "HD textures v4 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts; fonts kept)";
 
   // The game hangs at the main menu with one big uncompressed archive (340 MB, tested 15.11.). So the
   // result is written like the game's own archives: zlib-compressed entries, split into parts that are
@@ -246,6 +246,15 @@ namespace hdCore
     return false;
   }
 
+  // Font textures: the game cuts the letters out by pixel position, so a bigger texture breaks the text
+  // (an upscaled Standard.tga hung the game while building the main menu, 15.11.).
+  inline bool isFont(const std::string& lowerBase)
+  {
+    for (const char* f : { "font", "small", "standard" })
+      if (lowerBase.rfind(f, 0) == 0) return true;
+    return false;
+  }
+
   // Texture names used by the map terrain meshes (test.xbf: texture name blob after the header).
   inline std::set<std::string> terrainTextureNames(const fs::path& data)
   {
@@ -308,7 +317,7 @@ namespace hdCore
       it.entry = kv.second;
       it.base = kv.first.substr(9);
       if (it.base.rfind("grey_", 0) == 0 || bases.count("grey_" + it.base)) it.kind = KindIcon;
-      else if (isEffect(it.base)) it.kind = KindSkip;
+      else if (isEffect(it.base) || isFont(it.base)) it.kind = KindSkip;
       else if (terrain.count(it.base)) it.kind = KindTerrain;
       else it.kind = KindModel;
       if (it.kind != KindSkip) items.push_back(it);

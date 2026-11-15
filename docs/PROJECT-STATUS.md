@@ -61,6 +61,8 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 
 **Spiel hing beim Hauptmenü (15.11.), behoben:** Das Spiel liest jedes 3DDATA-Archiv beim Start **komplett in den Speicher** (Game.exe `0x403bf7`: `_stat` → `malloc(Dateigröße)` → `fread`), und Game.exe ist 32 Bit ohne „Large Address Aware“. Ein 340-MB-Archiv am Stück ließ sich nicht anlegen, das Spiel blieb nach „ResourceLibrary Initialise data\maps“ stehen. Jetzt: Einträge zlib-gepackt wie im Original (miniz, Stufe 9, ca. 59 % der Rohgröße) und aufgeteilt in Teile zu höchstens 40 MB (`hdtextures\3DDATA_HD_01…`, jedes mit Markierung, `version.txt` mit der Rezeptversion). Alte Ergebnisse werden beim Neu-Erzeugen gelöscht, ohne passende Version gilt „nicht erzeugt“. Falls der Speicher trotzdem knapp wird: Ausweg wäre ein Hook, der unsere Teile nicht vorlädt.
 
+**Eigentliche Ursache gefunden (15.11., per TextureTrace):** Das Spiel hing direkt nach dem Laden von `Standard.tga`, der **Schrift-Textur**. Schriften schneidet das Spiel nach Pixelpositionen aus, eine doppelt so große Schrift-Textur bringt es durcheinander. Schrift-Texturen (`font*`, `small*`, `standard*`: font3d, font3dsmall, small, small0, small1, Standard) bleiben jetzt original (Rezept v4). Packen und Aufteilen bleibt trotzdem drin (spart Speicher).
+
 **Erster Praxiswert:** Erzeugen dauerte beim Projektinhaber (RX 7800 XT) etwa **5 Minuten**.
 
 **Noch offen:** Spieltest im Spiel (Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).
