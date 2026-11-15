@@ -65,6 +65,10 @@ public:
   // Single-player money cheat (Ctrl+Shift+M = +25,000 credits). Off by default, never active in multiplayer.
   bool moneyCheat = false;
 
+  // Group movement (single player, player's own orders): keep the formation and arrive together.
+  // Ctrl+Shift+F switches it on/off in the game. Off by default while we test.
+  bool groupMove = false;
+
   // Debug log: data\emperor.txt with everything we record - game messages, system profile, crash report,
   // hang watchdog, memory, stutters (PerfLog), texture loads until the first mission - plus launcher.txt.
   // Off = nothing is written. On by default for now while we test; decide before the release.
@@ -171,6 +175,10 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
+    std::optional<std::string> groupMoveTemp = regReadString(key, "GroupMove");
+    if (groupMoveTemp)
+      groupMove = *groupMoveTemp == "1";
+
     std::optional<std::string> themeTemp = regReadString(key, "LauncherTheme");
     if (themeTemp)
       launcherTheme = atoi(themeTemp->c_str());
@@ -219,6 +227,7 @@ public:
     regWriteString(key, "GraphicsPack", graphicsPack ? "1" : "0");
     regWriteString(key, "GraphicsStyle", std::to_string(graphicsStyle));
     regWriteString(key, "MoneyCheat", moneyCheat ? "1" : "0");
+    regWriteString(key, "GroupMove", groupMove ? "1" : "0");
     regWriteString(key, "CameraZoom", std::to_string(cameraZoom));
     regWriteString(key, "LargeFont", largeFont ? "1" : "0");
     regWriteString(key, "Mods", mods ? "1" : "0");

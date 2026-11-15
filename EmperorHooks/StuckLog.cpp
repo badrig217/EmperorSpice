@@ -349,7 +349,8 @@ namespace
 void initStuckLog(bool enabled)
 {
   if (!enabled) return;
-  if (memcmp(reinterpret_cast<const void*>(kMoveStepVa), kMoveStepOrig, sizeof(kMoveStepOrig)) != 0)
+  if (memcmp(reinterpret_cast<const void*>(kMoveStepVa), kMoveStepOrig, sizeof(kMoveStepOrig)) != 0 &&
+      *reinterpret_cast<const uint8_t*>(kMoveStepVa) != 0xE9) // E9 = already detoured by GroupMove
   {
     Log("Stau: unexpected code at %08lX, not hooking\n", (unsigned long)kMoveStepVa);
     return;

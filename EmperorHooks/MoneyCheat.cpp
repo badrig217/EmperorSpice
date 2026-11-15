@@ -1,5 +1,7 @@
 #include "MoneyCheat.hpp"
 #include "Log.hpp"
+#include "GameMessage.hpp"
+#include <cstdio>
 #include <windows.h>
 
 // Game.exe v1.09 (MD5 7dc4fda2f6b7e8a6b70e846686a81938) - found via the mission script interpreter
@@ -45,6 +47,7 @@ namespace
     if (gameType == 3)
     {
       Log("MoneyCheat: ignored - multiplayer game\n");
+      showGameMessage(gameMessageGerman() ? "Geld-Cheat: im Mehrspieler nicht verfuegbar" : "Money cheat: not available in multiplayer");
       return;
     }
 
@@ -55,6 +58,7 @@ namespace
 
     reinterpret_cast<AddCashFn>(0x53ebf0)(side, kAmount);
     Log("MoneyCheat: +%d credits for side %d (now %d)\n", kAmount, playerSide, *reinterpret_cast<int*>(static_cast<char*>(side) + 0x868));
+    showGameMessage(gameMessageGerman() ? "Geld-Cheat: +25.000 Credits" : "Money cheat: +25,000 credits");
   }
 }
 

@@ -10,6 +10,7 @@
 #include "Error.hpp"
 #include "Log.hpp"
 #include "MoneyCheat.hpp"
+#include "GroupMove.hpp"
 #include "PerfLog.hpp"
 #include "DebugLog.hpp"
 #include "PickingTracer.hpp"
@@ -54,6 +55,7 @@ HRESULT STDMETHODCALLTYPE My_IDirect3DDevice7_EndScene(IDirect3DDevice7* This)
 
   smoothScrollUpdateFrame(); // refresh the frame-time scroll multiplier (no-op unless smooth scroll is on)
   moneyCheatUpdateFrame();   // Ctrl+Shift+M money cheat (no-op unless enabled in the launcher)
+  groupMoveUpdateFrame();    // Ctrl+Shift+F group movement on/off, reset after a mission
   perfLogFrame();            // stutter log (part of the debug log)
   debugLogFrame();           // hang watchdog heartbeat, crash handler refresh
 

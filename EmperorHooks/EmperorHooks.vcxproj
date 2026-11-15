@@ -124,6 +124,8 @@ nmake</Command>
     <ClInclude Include="PerfLog.hpp" />
     <ClInclude Include="TextureTrace.hpp" />
     <ClInclude Include="StuckLog.hpp" />
+    <ClInclude Include="GroupMove.hpp" />
+    <ClInclude Include="GameMessage.hpp" />
     <ClInclude Include="DebugLog.hpp" />
     <ClInclude Include="CameraZoom.hpp" />
     <ClInclude Include="ReShadeAddon.hpp" />
@@ -155,6 +157,8 @@ nmake</Command>
     <ClCompile Include="PerfLog.cpp" />
     <ClCompile Include="TextureTrace.cpp" />
     <ClCompile Include="StuckLog.cpp" />
+    <ClCompile Include="GroupMove.cpp" />
+    <ClCompile Include="GameMessage.cpp" />
     <ClCompile Include="DebugLog.cpp" />
     <ClCompile Include="CameraZoom.cpp" />
     <ClCompile Include="ReShadeAddon.cpp" />

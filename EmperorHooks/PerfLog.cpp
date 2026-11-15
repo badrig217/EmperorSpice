@@ -1,4 +1,5 @@
 #include "PerfLog.hpp"
+#include "GameMessage.hpp"
 #include "Log.hpp"
 #include <windows.h>
 #include <cstdint>
@@ -96,6 +97,7 @@ void perfLogFrame()
   {
     clock(t, sizeof(t));
     Log("PerfLog %s: ---- MARKER (Ctrl+Shift+L) ----\n", t);
+    showGameMessage(gameMessageGerman() ? "Debug-Log: Marke gesetzt" : "Debug log: marker set");
   }
   gMarkerDown = down;
 

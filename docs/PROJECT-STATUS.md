@@ -129,6 +129,10 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 - Test: Haken im Launcher (anfangs aus) und **Strg+Umschalt+F** zum Umschalten im Spiel, Zeilen im Debug-Log.
 - Ansatzpunkte: Befehls-Ausführer `0x4c3900`, Aufruf je Einheit `0x4c47fe`, Unit::GetSpeed `0x564d30` (siehe reverse-engineering.md).
 
+**Gebaut (15.11., PR #14, noch nicht im Spiel getestet):** `EmperorHooks/GroupMove.cpp`. Launcher: „Mods & Extras“ → „Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)“ (Registry `GroupMove`, aus). Die Hooks sind aktiv, wenn der Haken oder das Debug-Log an ist. **Strg+Umschalt+F** schaltet im Gefecht um, mit Info-Text im Spiel. Debug-Log-Zeilen: `Gruppe #n: … Einheiten, Ziel …, Gruppenbewegung an/aus, Formation` und `Gruppe #n fertig: x/y angekommen | erste, 90 %, letzte, Streuung`. Die Messung läuft auch bei „aus“, so lassen sich beide Varianten am selben Spielstand vergleichen. Simulation unter Wine (20 Einheiten, vorne langsam, hinten schnell): Streuung der Ankunft 25,7 s → 8,3 s; eine festgefahrene Einheit bremst die anderen nicht. Rest-Streuung kommt von der Untergrenze 50 % des eigenen Tempos.
+
+**Info-Texte im Spiel** (`EmperorHooks/GameMessage.cpp`, über die Meldungszeile des Spiels): Gruppenbewegung an/aus, Debug-Log-Marke (Strg+Umschalt+L), Geld-Cheat (+25.000 / im Mehrspieler nicht verfügbar). Sprache wie im Launcher, Texte ohne Umlaute.
+
 **Schritt 2, Taktikband (später):** eigene Leiste unten im Gefecht mit eigenen Icons, gezeichnet im D3D7-Hook. Ein Klick legt fest, wie der **nächste** Befehl ausgeführt wird (z. B. Gruppenbewegung), das Ziel bestimmt weiter das Spiel. Symbol neben dem Cursor statt Cursor-Tausch. Weitere Knöpfe für vorhandene Befehle (Bewachen, Verteilen, Einsetzen …), die multiplayer-sicher sind, weil es Original-Befehle sind. Wichtig: keine verschluckten Klicks, Breitbild und alle Auflösungen.
 
 ### Bug: Radar flackert an Klippen (gemeldet 15.11.)
