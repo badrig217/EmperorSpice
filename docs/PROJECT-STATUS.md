@@ -122,6 +122,15 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
+### Geplant: Gruppenbewegung und Taktikband (besprochen 15.11.)
+**Schritt 1, Gruppenbewegung** (eine Funktion, nur Befehle des Spielers, nur Einzelspieler):
+- Formation nach „Magic Box“: bei langen Wegen Abstände zur Gruppenmitte behalten, sehr verstreute Gruppen am Ziel zusammenziehen, bei kurzen Wegen (Ziel innerhalb der Gruppenfläche) auf den Punkt.
+- Gemeinsam ankommen: Tempo je Einheit so, dass alle zusammen ankommen. Untergrenze ~50 % des eigenen Tempos, festgefahrene Einheiten zählen nicht mit, Flugeinheiten ausgenommen, etwa jede Sekunde neu berechnet.
+- Test: Haken im Launcher (anfangs aus) und **Strg+Umschalt+F** zum Umschalten im Spiel, Zeilen im Debug-Log.
+- Ansatzpunkte: Befehls-Ausführer `0x4c3900`, Aufruf je Einheit `0x4c47fe`, Unit::GetSpeed `0x564d30` (siehe reverse-engineering.md).
+
+**Schritt 2, Taktikband (später):** eigene Leiste unten im Gefecht mit eigenen Icons, gezeichnet im D3D7-Hook. Ein Klick legt fest, wie der **nächste** Befehl ausgeführt wird (z. B. Gruppenbewegung), das Ziel bestimmt weiter das Spiel. Symbol neben dem Cursor statt Cursor-Tausch. Weitere Knöpfe für vorhandene Befehle (Bewachen, Verteilen, Einsetzen …), die multiplayer-sicher sind, weil es Original-Befehle sind. Wichtig: keine verschluckten Klicks, Breitbild und alle Auflösungen.
+
 ### Bug: Radar flackert an Klippen (gemeldet 15.11.)
 An Klippen und Abhängen wechseln im Radar einzelne Pixel hin und her, als wüsste das Radar nicht, wo Klippe und Sand aufhören (Screenshots vom Projektinhaber). ReShade ist es nicht (aus = Fehler bleibt). Die HD-Werkstatt ist es vermutlich auch nicht: Die Radar-Texturen (`!05%RadarRing`, `!05%radarline_32`, `!05%map*`) beginnen mit `!` und werden ausgelassen, das Radarbild selbst erzeugt das Spiel zur Laufzeit. Noch zu testen: Grafikstil „Original“ (ohne dgVoodoo-2x/Lanczos) und eine 4:3-Auflösung (ohne Breitbild-Seitenleiste). Bleibt es, liegt es am Spiel: dann den Radar-Code in Game.exe suchen (Strings „Radar“, „No radar sweep mesh …“, `Radar\%s.ini`).
 
