@@ -342,6 +342,7 @@ const int cameraZoomSteps[] = { 100, 125, 150, 175 };
 HWND shortcutButton = nullptr;
 HWND moneyCheatCheckbox = nullptr;
 HWND groupMoveCheckbox = nullptr;
+HWND radarCalmCheckbox = nullptr;
 HWND mpSettingsLabel = nullptr;
 HWND largeFontCheckbox = nullptr;
 HWND modsCheckbox = nullptr;
@@ -551,6 +552,7 @@ void loadAndApplySettings()
   }
   SendMessageA(moneyCheatCheckbox, BM_SETCHECK, settings.moneyCheat ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(groupMoveCheckbox, BM_SETCHECK, settings.groupMove ? BST_CHECKED : BST_UNCHECKED, 0);
+  SendMessageA(radarCalmCheckbox, BM_SETCHECK, settings.radarCalm ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(largeFontCheckbox, BM_SETCHECK, settings.largeFont ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(modsCheckbox, BM_SETCHECK, settings.mods ? BST_CHECKED : BST_UNCHECKED, 0);
   // Without generated textures the box can't be on (e.g. after a reinstall of the game).
@@ -657,6 +659,13 @@ LRESULT OnModsFolderClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 LRESULT onMoneyCheatCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   settings.moneyCheat = SendMessage(moneyCheatCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
+  settings.writeSettings();
+  return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
+}
+
+LRESULT onRadarCalmCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  settings.radarCalm = SendMessage(radarCalmCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
   settings.writeSettings();
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
@@ -914,6 +923,7 @@ LRESULT handleCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == debugLogCheckbox) return onDebugLogCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == moneyCheatCheckbox) return onMoneyCheatCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == groupMoveCheckbox) return onGroupMoveCheckboxClicked(hwnd, message, wParam, lParam);
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == radarCalmCheckbox) return onRadarCalmCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == largeFontCheckbox) return onLargeFontCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == shortcutButton) return OnShortcutClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == hdTexturesCheckbox) return onHdTexturesCheckboxClicked(hwnd, message, wParam, lParam);
@@ -1360,8 +1370,9 @@ int wmain(int argc, wchar_t* argv[])
             L"Strg+Umschalt+M gibt +25.000 Credits. Im Mehrspieler nie aktiv."), descX, 364, descW, 20);
     groupMoveCheckbox = check(T(L"Group movement: keep formation, arrive together (test)",
                                 L"Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)"), X, 400, 560);
-    muted(T(L"Ctrl+Shift+F switches it on/off in the game. Single player only.",
-            L"Strg+Umschalt+F schaltet im Spiel um. Nur im Einzelspieler."), descX, 424, descW, 20);
+    muted(T(L"Ctrl+Shift+F switches it in single player. In multiplayer all players need the same setting.",
+            L"Strg+Umschalt+F schaltet im Einzelspieler um. Im Mehrspieler brauchen alle dieselbe Einstellung."), descX, 424, descW, 20);
+    radarCalmCheckbox = check(T(L"Calmer radar (no fog flicker at cliffs)", L"Ruhigeres Radar (kein Nebel-Flackern an Klippen)"), X, 460, 560);
   }
 
   // --- Fixes (workarounds for driver and mouse problems) ----------------------------------------

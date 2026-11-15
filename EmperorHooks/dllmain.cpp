@@ -18,6 +18,7 @@
 #include "TextureTrace.hpp"
 #include "StuckLog.hpp"
 #include "GroupMove.hpp"
+#include "RadarCalm.hpp"
 #include "GameMessage.hpp"
 #include "DebugLog.hpp"
 #include "CameraZoom.hpp"
@@ -151,6 +152,7 @@ void runHooks()
   initTextureTrace(settings.debugLog); // texture loads until the first mission
   initStuckLog(settings.debugLog);     // jam reporter: units that cannot get through
   initGroupMove(settings.groupMove, settings.debugLog); // formation + arrive together (Ctrl+Shift+F)
+  initRadarCalm(settings.radarCalm);   // no fog flicker on the radar (display only)
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).

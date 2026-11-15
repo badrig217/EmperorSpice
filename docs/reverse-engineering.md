@@ -120,3 +120,8 @@ every access; orders in multiplayer and save games probably carry the same lists
 
 ## Symbol map
 Generated names for ~1,200 functions, the classes, the developers' source files and the unit type struct: `docs/re/` (see `docs/re/README.md`), built by `tools/re/symbols.py`. Verified addresses from this file are in its `MANUAL` table.
+
+## Radar (15.11.2026)
+- Radar object from the sidebar script `Radar\%s.ini` (loader around `0x519588`). Colours (16 bit ARGB4444) from the ini: `Default` `+0x218`, `Spice` `+0x21a`, `Shroud` `+0x21c`, `LayerColour` `+0x21e`, `Layers`, `AdditiveBlend`, `FogAlpha`/`FogAmount` (`+0x220`/`+0x221`); defaults set at `0x5194ef`. Terrain colour per tile: lowest set bit of tile byte 1 (terrain type mask: Sand, Rock, Cliff, NBRock, InfRock, DustBowl, MapEdge, Ramp) indexes 8 colours at `+0x208`; spice tiles (`0x4e63c0` on `[0x8824dc]`) use the Spice colour.
+- Tile colour function `0x51a030` (thiscall, ret 0x10) asks `0x51a340` Visibility(side, int* tileXY) (thiscall on world+0xa270, ret 8; 2 bits per tile, rows via `0x87fc50`): 3 = shroud (shroud colour), 2 = fog (terrain darkened by FogAlpha/FogAmount, no unit dots), else visible (unit dots from the objects on the tile). Callers of `0x51a340`: `0x51a061`, `0x51a0b4` (radar) and `0x564a06` (unit code).
+- **Flicker at cliffs:** height blocks sight, fog regrows (`FogRegrowRate`), sight is recalculated, so tiles at the edge of sight keep switching between fog and visible. `EmperorHooks/RadarCalm.cpp` changes only the radar's fog check (return address `0x51a0b9`): a tile that was fog stays fog on the radar until it has been visible for 2.5 s without a break (never shows more than the player sees).

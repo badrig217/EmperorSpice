@@ -159,7 +159,10 @@ Ziel ist später ein einfaches Matchmaking (Spieler finden sich über eine Webse
 
 **Schritt 2, Taktikband (später):** eigene Leiste unten im Gefecht mit eigenen Icons, gezeichnet im D3D7-Hook. Ein Klick legt fest, wie der **nächste** Befehl ausgeführt wird (z. B. Gruppenbewegung), das Ziel bestimmt weiter das Spiel. Symbol neben dem Cursor statt Cursor-Tausch. Weitere Knöpfe für vorhandene Befehle (Bewachen, Verteilen, Einsetzen …), die multiplayer-sicher sind, weil es Original-Befehle sind. Wichtig: keine verschluckten Klicks, Breitbild und alle Auflösungen.
 
-### Bug: Radar flackert an Klippen (gemeldet 15.11.)
+### Radar flackert an Klippen: Ursache gefunden, Beruhigung gebaut (15.11.)
+Ursache (aus Game.exe gelesen): An der Sichtgrenze, die an Klippen wegen der Höhe verläuft, wechseln Felder ständig zwischen „Nebel“ (dunkler) und „sichtbar“, weil der Nebel nachwächst (`FogRegrowRate`) und die Sicht neu berechnet wird. Original-Verhalten. `EmperorHooks/RadarCalm.cpp`: Ein Feld, das im Nebel war, bleibt auf dem Radar Nebel, bis es 2,5 s am Stück sichtbar ist. Das Radar zeigt also nie mehr als man sieht (keine Gegner im Nebel), nur die Sichtkante kommt etwas später. Nur Anzeige, im Multiplayer unbedenklich. Launcher: „Mods & Extras“ → „Ruhigeres Radar“ (Registry `RadarCalm`, standardmäßig an). Simuliert, im Spiel ungetestet. Bestätigungstest ohne Build: `FogRegrowRate` per Mod hochsetzen, dann sollte das Flackern auch ohne Beruhigung verschwinden.
+
+### (Alt) Bug: Radar flackert an Klippen (gemeldet 15.11.)
 An Klippen und Abhängen wechseln im Radar einzelne Pixel hin und her, als wüsste das Radar nicht, wo Klippe und Sand aufhören (Screenshots vom Projektinhaber). ReShade ist es nicht (aus = Fehler bleibt). Die HD-Werkstatt ist es vermutlich auch nicht: Die Radar-Texturen (`!05%RadarRing`, `!05%radarline_32`, `!05%map*`) beginnen mit `!` und werden ausgelassen, das Radarbild selbst erzeugt das Spiel zur Laufzeit. Noch zu testen: Grafikstil „Original“ (ohne dgVoodoo-2x/Lanczos) und eine 4:3-Auflösung (ohne Breitbild-Seitenleiste). Bleibt es, liegt es am Spiel: dann den Radar-Code in Game.exe suchen (Strings „Radar“, „No radar sweep mesh …“, `Radar\%s.ini`).
 
 ### Wegfindung: Befund aus dem ersten Stau-Test (15.11.)

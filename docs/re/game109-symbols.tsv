@@ -836,6 +836,8 @@
 0x00518b70	func	Base::vf_4_518b70	vtable		shared by 3 vtables, slot 0x4
 0x00518bd0	func	Base::vf_8_518bd0	vtable		shared by 4 vtables, slot 0x8
 0x00518c30	func	Base::vf_c_518c30	vtable		shared by 4 vtables, slot 0xc
+0x0051a030	func	Radar_TileColour	manual		thiscall, ret 0x10: shroud/fog/terrain/unit colour of one radar pixel
+0x0051a340	func	Visibility_Get	manual		thiscall on world+0xa270 (side, int* tileXY) -> 0/1 visible, 2 fog, 3 shroud
 0x0051caf0	func	Random_Next	manual		synchronised game random generator (thiscall on [0x7d75dc])
 0x0051eda0	func	Base::vf_4_51eda0	vtable		shared by 2 vtables, slot 0x4
 0x0051edc0	func	Base::vf_8_51edc0	vtable		shared by 2 vtables, slot 0x8

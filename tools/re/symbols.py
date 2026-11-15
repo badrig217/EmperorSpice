@@ -67,6 +67,8 @@ MANUAL = {
     0x597bb0: ('Sides_GetSide', 'thiscall on [0x817c00] (index)'),
     0x59b350: ('World_FindObject', 'thiscall on [0x817c00] (int* id); id = index | generation<<16'),
     0x4ef5d5: ('Script_Dispatch', 'jump on script function id (table 0x4f3fb4)'),
+    0x51a030: ('Radar_TileColour', 'thiscall, ret 0x10: shroud/fog/terrain/unit colour of one radar pixel'),
+    0x51a340: ('Visibility_Get', 'thiscall on world+0xa270 (side, int* tileXY) -> 0/1 visible, 2 fog, 3 shroud'),
     0x5b0c81: ('operator_new', 'CRT'),
     0x5b25e0: ('strcmp_like', 'CRT string compare (0 = equal)'),
     0x5b3148: ('vsprintf', 'CRT'),

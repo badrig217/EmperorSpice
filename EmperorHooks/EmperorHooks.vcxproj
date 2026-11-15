@@ -127,6 +127,7 @@ nmake</Command>
     <ClInclude Include="GroupMove.hpp" />
     <ClInclude Include="GameMessage.hpp" />
     <ClInclude Include="GameState.hpp" />
+    <ClInclude Include="RadarCalm.hpp" />
     <ClInclude Include="DebugLog.hpp" />
     <ClInclude Include="CameraZoom.hpp" />
     <ClInclude Include="ReShadeAddon.hpp" />
@@ -160,6 +161,7 @@ nmake</Command>
     <ClCompile Include="StuckLog.cpp" />
     <ClCompile Include="GroupMove.cpp" />
     <ClCompile Include="GameMessage.cpp" />
+    <ClCompile Include="RadarCalm.cpp" />
     <ClCompile Include="DebugLog.cpp" />
     <ClCompile Include="CameraZoom.cpp" />
     <ClCompile Include="ReShadeAddon.cpp" />

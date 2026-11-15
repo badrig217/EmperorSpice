@@ -835,6 +835,8 @@ f fcn.Base.vf_10_518b00 @ 0x518b00
 f fcn.Base.vf_4_518b70 @ 0x518b70
 f fcn.Base.vf_8_518bd0 @ 0x518bd0
 f fcn.Base.vf_c_518c30 @ 0x518c30
+f fcn.Radar_TileColour @ 0x51a030
+f fcn.Visibility_Get @ 0x51a340
 f fcn.Random_Next @ 0x51caf0
 f fcn.Base.vf_4_51eda0 @ 0x51eda0
 f fcn.Base.vf_8_51edc0 @ 0x51edc0
