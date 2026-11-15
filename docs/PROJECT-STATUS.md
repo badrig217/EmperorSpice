@@ -102,6 +102,8 @@ Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a.
 - Unter Wine getestet: Steckbrief, Hänger-Meldung mit richtiger Aufrufkette, Absturz-Bericht mit Dump.
 - Karte und Spieler stehen schon in den Spielmeldungen („Map: …“, „gSetupInit list…“).
 
+**Auswahl-Limit 64 (15.11.):** Beim Rahmen-Aufziehen sind höchstens 64 Einheiten auswählbar. Das ist in Game.exe die Größe fester Listen, keine einzelne Zahl (Details in `reverse-engineering.md`). Anheben wäre ein großer, riskanter Umbau (auch Multiplayer/Spielstände). Das eigentliche Problem des Projektinhabers: nicht ausgewählte eigene Einheiten machen keinen Platz, und die ausgewählten verkeilen sich. Ansatz für später: Ausweich-Verhalten untersuchen (warum stehende eigene Einheiten nicht ausweichen).
+
 Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
 2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.

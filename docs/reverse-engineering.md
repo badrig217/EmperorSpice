@@ -78,3 +78,10 @@ Werkzeuge: `tools/re/re_tools.py` (pefile + capstone), `tools/re/rfd.py` (Archiv
 - `0x403b70` opens the RFDs. If the library flag `[this+0x97c]` is set, every RFD is read **completely into one malloc block** (`_stat` → `malloc(size)` → `fread`). Game.exe is 32 bit without Large Address Aware.
 - `0x403490` `ResourceLibrary::Load(name, uint32* size, 0, 0)` (thiscall, `ret 0x10`) returns the file data. The texture loader at `0x54c2b8` builds `TEXTURES\name`, calls it and logs "Failed to find texture %s" on 0, then creates the texture with `0x417810(data, info)` (cdecl).
 - Diagnostic hook: `EmperorHooks/TextureTrace.cpp` logs both calls until the first mission.
+
+## Selection limit 64 (looked at 15.11.2026, not changed)
+The player can select at most 64 units (box selection, reported by the project owner). In Game.exe 64 is not one
+setting but the size of fixed lists: e.g. an array of 64 entries at `[obj+0x34]` (`0x4ba0c1`–`0x4ba102`,
+`0x4bcb07`–`0x4bcb0d`), stack arrays of 64 (`0x4bb4ac`–`0x4bb4b7`), and about 50 more `cmp reg, 0x40` checks,
+many in `0x4b7d32`–`0x4be829`. Raising the limit would mean moving these lists into bigger memory and changing
+every access; orders in multiplayer and save games probably carry the same lists. Big and risky, not planned.
