@@ -117,3 +117,6 @@ every access; orders in multiplayer and save games probably carry the same lists
 
 ## Correction: 0x817c0c is a pointer (code review 15.11.2026)
 `[0x817c0c]` is not a byte flag but the battlefield sidebar/HUD object (`new(0x94)` at `0x4b541a`, stored at `0x4b543f`, cleared at `0x4b7282`). Non-null = a battlefield runs. Always read the whole dword (`EmperorHooks/GameState.hpp`); the low byte of a heap pointer can be 0. Object ids: `obj+4` int16 index, `obj+6` int16 generation (checked by FindObject `0x59b350`). A new game creates a new net manager `[0x7cb9d4]` with the frame counter at 0.
+
+## Symbol map
+Generated names for ~1,200 functions, the classes, the developers' source files and the unit type struct: `docs/re/` (see `docs/re/README.md`), built by `tools/re/symbols.py`. Verified addresses from this file are in its `MANUAL` table.

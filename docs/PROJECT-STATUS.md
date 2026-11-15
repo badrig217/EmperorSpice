@@ -122,6 +122,10 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
+### Grundverständnis Game.exe: Symbol-Landkarte (15.11., Teil 1)
+`tools/re/symbols.py` erzeugt aus der eigenen Game.exe eine Landkarte in `docs/re/` (nur Adressen, Namen, eigene Notizen; kein Spielcode, keine Spieltexte). Stand: 6.342 Funktionen gefunden, **1.194 (18,8 %) mit Namen**, 309 einer der 63 Quelldateien der Entwickler zugeordnet (Pfade wie `Dune3\Model\unit.cpp` stehen noch in Game.exe), 343 Vtables, davon 35 einer Klasse zugeordnet (33 Klassen, u. a. alle Einheitenklassen; `0x5d4f18` ist der Sandsturm), 131 Felder des Einheitentyps aus den rules.txt-Schlüsseln, 360 Sprungmarken für Skript-Befehle und rules-Schlüssel. Werkzeuge: radare2 (Ubuntu-Paket) mit `docs/re/game109.r2`, Ghidra-Importskript, Decompiler-Helfer mit angr (`tools/re/decompile.py`, Ausgabe nur lokal). Ghidra selbst ließ sich hier nicht laden (Netz-Richtlinie), angr ersetzt den Decompiler.
+Teil 2 (Entdecker-Modus im Spiel: Einheiten-Speicher ins Log, Funktions-Spur bei Aktionen) braucht Tests des Projektinhabers.
+
 ### Code-Review seit v1.1 (15.11.)
 Unabhängiger Prüfer, Funde nachgeprüft, Punkte 1–8 behoben:
 1. Missions-Abfrage las nur das unterste Byte eines Zeigers (`0x817c0c`): in etwa jeder 16.–32. Mission falsch, im Multiplayer Desync. Jetzt überall `GameState.hpp`.
