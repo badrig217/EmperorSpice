@@ -341,6 +341,9 @@ HWND cameraZoomCombo = nullptr;
 const int cameraZoomSteps[] = { 100, 125, 150, 175 };
 HWND shortcutButton = nullptr;
 HWND moneyCheatCheckbox = nullptr;
+HWND groupMoveCheckbox = nullptr;
+HWND radarCalmCheckbox = nullptr;
+HWND mpSettingsLabel = nullptr;
 HWND largeFontCheckbox = nullptr;
 HWND modsCheckbox = nullptr;
 HWND modsFolderButton = nullptr;
@@ -448,6 +451,15 @@ void refreshStatus()
     text += std::wstring(L"  \u00b7  ") + T(L"Multiplayer: client", L"Mehrspieler: Client");
   SetWindowTextW(statusLabel, text.c_str());
   refreshHdTexturesStatus();
+
+  // Multiplayer page: what all players need to have the same (otherwise the games drift apart)
+  if (mpSettingsLabel)
+  {
+    std::wstring mp = std::wstring(kLauncherVersion) + L"\n" +
+                      T(L"Group movement: ", L"Gruppenbewegung: ") + (settings.groupMove ? T(L"on", L"an") : T(L"off", L"aus")) + L"\n" +
+                      T(L"Mods: ", L"Mods: ") + (settings.mods ? T(L"on (everyone needs the same mods)", L"an (alle brauchen dieselben Mods)") : T(L"off", L"aus"));
+    SetWindowTextW(mpSettingsLabel, mp.c_str());
+  }
 }
 
 void refreshHdTexturesButton()
@@ -539,6 +551,8 @@ void loadAndApplySettings()
     SendMessageA(cameraZoomCombo, CB_SETCURSEL, zoomIndex, 0);
   }
   SendMessageA(moneyCheatCheckbox, BM_SETCHECK, settings.moneyCheat ? BST_CHECKED : BST_UNCHECKED, 0);
+  SendMessageA(groupMoveCheckbox, BM_SETCHECK, settings.groupMove ? BST_CHECKED : BST_UNCHECKED, 0);
+  SendMessageA(radarCalmCheckbox, BM_SETCHECK, settings.radarCalm ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(largeFontCheckbox, BM_SETCHECK, settings.largeFont ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageA(modsCheckbox, BM_SETCHECK, settings.mods ? BST_CHECKED : BST_UNCHECKED, 0);
   // Without generated textures the box can't be on (e.g. after a reinstall of the game).
@@ -645,6 +659,20 @@ LRESULT OnModsFolderClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 LRESULT onMoneyCheatCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
   settings.moneyCheat = SendMessage(moneyCheatCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
+  settings.writeSettings();
+  return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
+}
+
+LRESULT onRadarCalmCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  settings.radarCalm = SendMessage(radarCalmCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
+  settings.writeSettings();
+  return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
+}
+
+LRESULT onGroupMoveCheckboxClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  settings.groupMove = SendMessage(groupMoveCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED;
   settings.writeSettings();
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
@@ -894,6 +922,8 @@ LRESULT handleCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == disableCursorCaptureCheckbox) return onDisableCursorCaptureCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == debugLogCheckbox) return onDebugLogCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == moneyCheatCheckbox) return onMoneyCheatCheckboxClicked(hwnd, message, wParam, lParam);
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == groupMoveCheckbox) return onGroupMoveCheckboxClicked(hwnd, message, wParam, lParam);
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == radarCalmCheckbox) return onRadarCalmCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == largeFontCheckbox) return onLargeFontCheckboxClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == shortcutButton) return OnShortcutClicked(hwnd, message, wParam, lParam);
   if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED && reinterpret_cast<HWND>(lParam) == hdTexturesCheckbox) return onHdTexturesCheckboxClicked(hwnd, message, wParam, lParam);
@@ -1313,6 +1343,13 @@ int wmain(int argc, wchar_t* argv[])
                                               S(descX), S(260), S(300), S(26), window, nullptr, nullptr, nullptr));
     gThemedNative.push_back(serverAddressTextbox);
     testNetworkButton = button(T(L"Test connection", L"Verbindung testen"), descX + 312, 258, 180);
+
+    heading(T(L"Must be the same for all players", L"Muss bei allen Spielern gleich sein"), 320);
+    mpSettingsLabel = label(L"", descX, 352, descW, 66);
+    muted(T(L"If these differ, the games drift apart. Graphics, zoom, fonts and HD textures are up to each player.",
+            L"Weichen sie ab, laufen die Spiele auseinander. Grafik, Zoom, Schrift und HD-Texturen darf jeder selbst w\u00e4hlen."),
+          descX, 424, descW, 40);
+    muted(T(L"The money cheat is never active in multiplayer.", L"Der Geld-Cheat ist im Mehrspieler nie aktiv."), descX, 466, descW, 20);
   }
 
   // --- Mods & extras -----------------------------------------------------------------------------
@@ -1331,6 +1368,11 @@ int wmain(int argc, wchar_t* argv[])
     moneyCheatCheckbox = check(T(L"Money cheat in single player", L"Geld-Cheat im Einzelspieler"), X, 340, 460);
     muted(T(L"Ctrl+Shift+M gives +25,000 credits. Never active in multiplayer.",
             L"Strg+Umschalt+M gibt +25.000 Credits. Im Mehrspieler nie aktiv."), descX, 364, descW, 20);
+    groupMoveCheckbox = check(T(L"Group movement: keep formation, arrive together (test)",
+                                L"Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)"), X, 400, 560);
+    muted(T(L"Ctrl+Shift+F switches it in single player. In multiplayer all players need the same setting.",
+            L"Strg+Umschalt+F schaltet im Einzelspieler um. Im Mehrspieler brauchen alle dieselbe Einstellung."), descX, 424, descW, 20);
+    radarCalmCheckbox = check(T(L"Calmer radar (no fog flicker at cliffs)", L"Ruhigeres Radar (kein Nebel-Flackern an Klippen)"), X, 460, 560);
   }
 
   // --- Fixes (workarounds for driver and mouse problems) ----------------------------------------

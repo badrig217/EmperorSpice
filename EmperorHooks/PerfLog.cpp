@@ -1,4 +1,5 @@
 #include "PerfLog.hpp"
+#include "GameMessage.hpp"
 #include "Log.hpp"
 #include <windows.h>
 #include <cstdint>
@@ -31,7 +32,8 @@ namespace
 #ifndef PERFLOG_MISSION_FLAG
 #define PERFLOG_MISSION_FLAG 0x00817c0c
 #endif
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(PERFLOG_MISSION_FLAG) != 0; }
+  // a pointer (HUD object), not a byte flag: read the whole dword
+  bool inMission() { return *reinterpret_cast<volatile uintptr_t*>(PERFLOG_MISSION_FLAG) != 0; }
 
   bool gameWindowFocused()
   {
@@ -96,6 +98,7 @@ void perfLogFrame()
   {
     clock(t, sizeof(t));
     Log("PerfLog %s: ---- MARKER (Ctrl+Shift+L) ----\n", t);
+    showGameMessage(gameMessageGerman() ? "Debug-Log: Marke gesetzt" : "Debug log: marker set");
   }
   gMarkerDown = down;
 

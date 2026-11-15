@@ -115,11 +115,15 @@ namespace hdTextures
     date.clear();
     if (!hdCore::generated(gameDir)) return false;
     std::error_code ec;
+    auto add = [&](const fs::path& p) {
+      const auto size = fs::file_size(p, ec);
+      if (!ec) bytes += size; // on error file_size returns -1
+    };
     for (int n = 1; n <= hdCore::cachedParts(gameDir); n++)
-      bytes += fs::file_size(hdCore::cachePart(gameDir, n, ".RFD"), ec);
+      add(hdCore::cachePart(gameDir, n, ".RFD"));
     const fs::path data = hdCore::dataDir(gameDir);
     for (int n : hdCore::activeHdArchives(data))
-      bytes += fs::file_size(hdCore::archivePath(data, "3DDATA", n, ".RFD"), ec);
+      add(hdCore::archivePath(data, "3DDATA", n, ".RFD"));
     WIN32_FILE_ATTRIBUTE_DATA fa;
     FILETIME local;
     SYSTEMTIME st;

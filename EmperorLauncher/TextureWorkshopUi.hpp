@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 // Grafik-Werkstatt: progress window for generating the HD textures (see TextureWorkshop.hpp).
 // Modal: the launcher window is disabled while the worker thread runs. Cancel stops Real-ESRGAN at once.
 #include <Windows.h>
@@ -19,7 +20,7 @@ namespace hdTexturesUi
     HWND window = nullptr, label = nullptr, bar = nullptr, cancelButton = nullptr;
     std::chrono::steady_clock::time_point started, upscaleStarted;
     int upscaleStartDone = -1;
-    bool finished = false;
+    std::atomic<bool> finished{ false }; // written by the worker, read by the UI loop
   };
   inline State* gState = nullptr;
 

@@ -16,6 +16,10 @@
 #include "MoneyCheat.hpp"
 #include "PerfLog.hpp"
 #include "TextureTrace.hpp"
+#include "StuckLog.hpp"
+#include "GroupMove.hpp"
+#include "RadarCalm.hpp"
+#include "GameMessage.hpp"
 #include "DebugLog.hpp"
 #include "CameraZoom.hpp"
 #include "ReShadeAddon.hpp"
@@ -140,9 +144,15 @@ void runHooks()
   initSmoothScroll(settings.smoothScroll);
 
   // Optional single-player money cheat (polled from EndScene).
+  // In-game info texts in the launcher language ("" = not chosen yet: follow Windows)
+  initGameMessage(settings.language == "de" ||
+                  (settings.language.empty() && PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_GERMAN));
   initMoneyCheat(settings.moneyCheat);
   initPerfLog(settings.debugLog);      // stutters
   initTextureTrace(settings.debugLog); // texture loads until the first mission
+  initStuckLog(settings.debugLog);     // jam reporter: units that cannot get through
+  initGroupMove(settings.groupMove, settings.debugLog); // formation + arrive together (Ctrl+Shift+F)
+  initRadarCalm(settings.radarCalm);   // no fog flicker on the radar (display only)
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).

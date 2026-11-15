@@ -1,0 +1,9 @@
+functions found: 6342
+functions with an own name: 1196 (18.9 %)
+functions with a known source file: 309 (4.9 %) in 63 files
+code bytes in functions with an own name: 18.4 % of 1892413
+code bytes with a known source file: 7.0 %
+labels (script/rules handlers inside functions): 360
+unit type fields: 131
+vtables found: 343, with a class name: 35 (33 classes)
+by source: logstr 351, manual 41, module 179, rules 200, script 160, vtable 839

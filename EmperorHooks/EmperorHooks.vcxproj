@@ -123,6 +123,11 @@ nmake</Command>
     <ClInclude Include="MoneyCheat.hpp" />
     <ClInclude Include="PerfLog.hpp" />
     <ClInclude Include="TextureTrace.hpp" />
+    <ClInclude Include="StuckLog.hpp" />
+    <ClInclude Include="GroupMove.hpp" />
+    <ClInclude Include="GameMessage.hpp" />
+    <ClInclude Include="GameState.hpp" />
+    <ClInclude Include="RadarCalm.hpp" />
     <ClInclude Include="DebugLog.hpp" />
     <ClInclude Include="CameraZoom.hpp" />
     <ClInclude Include="ReShadeAddon.hpp" />
@@ -153,6 +158,10 @@ nmake</Command>
     <ClCompile Include="MoneyCheat.cpp" />
     <ClCompile Include="PerfLog.cpp" />
     <ClCompile Include="TextureTrace.cpp" />
+    <ClCompile Include="StuckLog.cpp" />
+    <ClCompile Include="GroupMove.cpp" />
+    <ClCompile Include="GameMessage.cpp" />
+    <ClCompile Include="RadarCalm.cpp" />
     <ClCompile Include="DebugLog.cpp" />
     <ClCompile Include="CameraZoom.cpp" />
     <ClCompile Include="ReShadeAddon.cpp" />

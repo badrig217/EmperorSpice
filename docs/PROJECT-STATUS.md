@@ -108,11 +108,65 @@ Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a.
 
 **Auswahl-Limit 64 (15.11.):** Beim Rahmen-Aufziehen sind höchstens 64 Einheiten auswählbar. Das ist in Game.exe die Größe fester Listen, keine einzelne Zahl (Details in `reverse-engineering.md`). Anheben wäre ein großer, riskanter Umbau (auch Multiplayer/Spielstände). Das eigentliche Problem des Projektinhabers: nicht ausgewählte eigene Einheiten machen keinen Platz, und die ausgewählten verkeilen sich. Ansatz für später: Ausweich-Verhalten untersuchen (warum stehende eigene Einheiten nicht ausweichen).
 
+**rules.txt geprüft (15.11.):** `MODEL0001` ist die Original-rules.txt, `MODEL0002` der Patch 1.09 (ändert nur drei Werte). Es gibt **keine Wegfindungs-Werte** (Wartezeit, Ausweichen, Neuberechnung). Bewegung betreffen nur `Speed`, `TurnRate`, `Size` (1–3), `CanMoveAnyDirection`, `Crushable`/`Crushes`. Ansatz 2 per Mod-Datei entfällt damit, die Wegfindung muss in Game.exe angegangen werden.
+
+**Stau-Melder (15.11., gehört zum Debug-Log, PR #14):** `EmperorHooks/StuckLog.cpp` hängt sich an den Bewegungsschritt der Einheiten (`0x562f00`, nur mitlesen). Einheiten ohne Fahrbefehl (z. B. wartend am Sammelpunkt) rufen ihn nicht auf und werden nicht gemeldet. In `emperor.txt`:
+- `Stau: FEST …`: Einheit kommt 8 s keine Viertel-Kachel voran, obwohl sie laufen will. Mit Typ, Seite, Feld, Ziel, nächstem Wegfeld und allem, was dort und auf dem eigenen Feld steht, jeweils mit „steht“ (kein Fahrbefehl), „laeuft“ oder „FEST“. Die Spielerseite steht einmal im Log.
+- `Stau: frei/angekommen/aufgegeben … nach N s`: wie der Stau für diese Einheit endete („aufgegeben“ = hörte ohne Durchkommen auf zu laufen: aufgegeben, neuer Befehl oder zerstört; erscheint 10 s später).
+- `Stau-Lage` alle 10 s, solange etwas fest ist: Anzahl, Bereich, die drei Felder, auf die die meisten warten, und was dort steht. `Stau-Minute`: Summen.
+- Höchstens 150 Einzelmeldungen pro Minute. Mit einer Simulation (124 Einheiten, 64 mit Befehl) unter Wine geprüft, noch nicht im Spiel. Für Tests: **Strg+Umschalt+L** kurz vor dem Losschicken setzt eine Marke ins Log.
+
 Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
-2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
+2. **Sammler-Stau:** ~~Werte in `rules.txt`~~ gibt es nicht (siehe oben). Mit dem Stau-Melder Fälle sammeln.
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
+
+### Grundverständnis Game.exe: Symbol-Landkarte (15.11., Teil 1)
+`tools/re/symbols.py` erzeugt aus der eigenen Game.exe eine Landkarte in `docs/re/` (nur Adressen, Namen, eigene Notizen; kein Spielcode, keine Spieltexte). Stand: 6.342 Funktionen gefunden, **1.194 (18,8 %) mit Namen**, 309 einer der 63 Quelldateien der Entwickler zugeordnet (Pfade wie `Dune3\Model\unit.cpp` stehen noch in Game.exe), 343 Vtables, davon 35 einer Klasse zugeordnet (33 Klassen, u. a. alle Einheitenklassen; `0x5d4f18` ist der Sandsturm), 131 Felder des Einheitentyps aus den rules.txt-Schlüsseln, 360 Sprungmarken für Skript-Befehle und rules-Schlüssel. Werkzeuge: radare2 (Ubuntu-Paket) mit `docs/re/game109.r2`, Ghidra-Importskript, Decompiler-Helfer mit angr (`tools/re/decompile.py`, Ausgabe nur lokal). Ghidra selbst ließ sich hier nicht laden (Netz-Richtlinie), angr ersetzt den Decompiler.
+Teil 2 (Entdecker-Modus im Spiel: Einheiten-Speicher ins Log, Funktions-Spur bei Aktionen) braucht Tests des Projektinhabers.
+
+### Code-Review seit v1.1 (15.11.)
+Unabhängiger Prüfer, Funde nachgeprüft, Punkte 1–8 behoben:
+1. Missions-Abfrage las nur das unterste Byte eines Zeigers (`0x817c0c`): in etwa jeder 16.–32. Mission falsch, im Multiplayer Desync. Jetzt überall `GameState.hpp`.
+2. GroupMove: Zustand wird bei einer neuen Partie zurückgesetzt (neuer Netzmanager oder Tickzähler zurück).
+3. GroupMove: Einheiten werden über ihre Spiel-Id geprüft, nicht nur über die Adresse (wiederverwendete Adresse einer zerstörten Einheit erbt nichts). Simuliert.
+4. GroupMove: Formationsziel nur für das eigene Befehlspaket; Abstand mit `sqrt` statt CRT-`hypot`.
+5. Werkstatt: Fehler in den Arbeits-Threads (z. B. Speicher voll) werden gemeldet statt Absturz.
+6. Mod- und HD-Archive: Schreibfehler beim Schließen (Platte voll) werden erkannt, halbe Dateien gelöscht.
+7. Archive verschieben/umnummerieren: schlägt der zweite Schritt fehl, wird der erste zurückgenommen (kein getrenntes RFD/RFH-Paar). Getestet.
+8. Fortschrittsfenster `std::atomic<bool>`, Größenanzeige ignoriert Lesefehler.
+Offen (Entscheidung): Gleichheit der Einstellungen im Multiplayer wird nicht geprüft; Versionsanzeige steht noch auf v1.1 bis zum Release.
+
+### Grundregel: alles multiplayer-fest (Projektinhaber, 15.11.)
+Ziel ist später ein einfaches Matchmaking (Spieler finden sich über eine Webseite oder den Launcher). Deshalb:
+- Was nur ein Spieler sieht (Grafik, Zoom, Schrift, HD-Texturen, Logs, Info-Texte), darf jeder selbst einstellen.
+- Was das Spielgeschehen ändert (z. B. Gruppenbewegung), rechnet **nur mit Spiel-Ticks** (`[[0x7cb9d4]+0x14]`), Spieldaten und der Befehlsreihenfolge: keine echte Uhrzeit, kein eigener Zufall, Container mit fester Reihenfolge. Der Host legt fest, was an ist; alle prüfen beim Start Version und Einstellungen. Tastenkürzel zum Umschalten gibt es im Multiplayer nicht.
+- Matchmaking, Stand der Überlegung: eine Liste „wer ist online / wer sucht ein Spiel“ geht mit normalem Webspace. Für die Lobby im Spiel (Westwood-Online-Ersatz aus Reborn) und die Weiterleitung ohne Portfreigabe braucht es einen VPS (ca. 4–6 € im Monat). Dazu gehören Betrieb, Impressum/Datenschutz (IP-Adressen, Namen) und bei Chat Moderation. Größtes Risiko ist eine leere Lobby, also mit der Community planen (Discord, FED2k, ggf. mit Reborn).
+
+### Geplant: Gruppenbewegung und Taktikband (besprochen 15.11.)
+**Schritt 1, Gruppenbewegung** (eine Funktion, nur Befehle des Spielers, nur Einzelspieler):
+- Formation nach „Magic Box“: bei langen Wegen Abstände zur Gruppenmitte behalten, sehr verstreute Gruppen am Ziel zusammenziehen, bei kurzen Wegen (Ziel innerhalb der Gruppenfläche) auf den Punkt.
+- Gemeinsam ankommen: Tempo je Einheit so, dass alle zusammen ankommen. Untergrenze ~50 % des eigenen Tempos, festgefahrene Einheiten zählen nicht mit, Flugeinheiten ausgenommen, etwa jede Sekunde neu berechnet.
+- Test: Haken im Launcher (anfangs aus) und **Strg+Umschalt+F** zum Umschalten im Spiel, Zeilen im Debug-Log.
+- Ansatzpunkte: Befehls-Ausführer `0x4c3900`, Aufruf je Einheit `0x4c47fe`, Unit::GetSpeed `0x564d30` (siehe reverse-engineering.md).
+
+**Gebaut (15.11., PR #14, noch nicht im Spiel getestet):** `EmperorHooks/GroupMove.cpp`. Launcher: „Mods & Extras“ → „Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)“ (Registry `GroupMove`, aus). Die Hooks sind aktiv, wenn der Haken oder das Debug-Log an ist. **Strg+Umschalt+F** schaltet im Gefecht um, mit Info-Text im Spiel. Debug-Log-Zeilen: `Gruppe #n: … Einheiten, Ziel …, Gruppenbewegung an/aus, Formation` und `Gruppe #n fertig: x/y angekommen | erste, 90 %, letzte, Streuung`. Die Messung läuft auch bei „aus“, so lassen sich beide Varianten am selben Spielstand vergleichen. **Multiplayer-fest gerechnet** (Spiel-Ticks statt Uhrzeit; in der Simulation mit ungleichmäßig laufender Uhr nach 300 Ticks identische Positionen), **keine Sperre im Multiplayer** (Wunsch des Projektinhabers). Sie wirkt auf die Befehle **aller** menschlichen Spieler, also jene, die über die Befehlswarteschlange laufen (Aufruf aus `0x50a280`), damit jeder Rechner dieselben Befehle umformt. Befehle der KI laufen direkt und bleiben unverändert. Strg+Umschalt+F schaltet im Multiplayer nicht um (Info-Text: „nur über den Launcher, alle gleich“).
+- Launcher, Reiter Mehrspieler: Übersicht „Muss bei allen Spielern gleich sein“ (Version, Gruppenbewegung, Mods).
+- Debug-Log für den Multiplayer: `Befehl Tick n: Typ, Seite, Einheiten, Ziel` für jeden Spielerbefehl und alle 150 Ticks `Sync Tick n: Prüfsumme (Objekte)` über alle Objekte (Id und Position). Laufen zwei Spiele auseinander, die `emperor.txt` beider Spieler vergleichen: Der erste Tick mit unterschiedlicher Prüfsumme zeigt den Zeitpunkt, die Befehle davor die mögliche Ursache. Simulation unter Wine (20 Einheiten, vorne langsam, hinten schnell): Streuung der Ankunft 25,7 s → 8,3 s; eine festgefahrene Einheit bremst die anderen nicht. Rest-Streuung kommt von der Untergrenze 50 % des eigenen Tempos.
+
+**Info-Texte im Spiel** (`EmperorHooks/GameMessage.cpp`, über die Meldungszeile des Spiels): Gruppenbewegung an/aus, Debug-Log-Marke (Strg+Umschalt+L), Geld-Cheat (+25.000 / im Mehrspieler nicht verfügbar). Sprache wie im Launcher, Texte ohne Umlaute.
+
+**Schritt 2, Taktikband (später):** eigene Leiste unten im Gefecht mit eigenen Icons, gezeichnet im D3D7-Hook. Ein Klick legt fest, wie der **nächste** Befehl ausgeführt wird (z. B. Gruppenbewegung), das Ziel bestimmt weiter das Spiel. Symbol neben dem Cursor statt Cursor-Tausch. Weitere Knöpfe für vorhandene Befehle (Bewachen, Verteilen, Einsetzen …), die multiplayer-sicher sind, weil es Original-Befehle sind. Wichtig: keine verschluckten Klicks, Breitbild und alle Auflösungen.
+
+### Radar flackert an Klippen: Ursache gefunden, Beruhigung gebaut (15.11.)
+Ursache (aus Game.exe gelesen): An der Sichtgrenze, die an Klippen wegen der Höhe verläuft, wechseln Felder ständig zwischen „Nebel“ (dunkler) und „sichtbar“, weil der Nebel nachwächst (`FogRegrowRate`) und die Sicht neu berechnet wird. Original-Verhalten. `EmperorHooks/RadarCalm.cpp`: Ein Feld, das im Nebel war, bleibt auf dem Radar Nebel, bis es 2,5 s am Stück sichtbar ist. Das Radar zeigt also nie mehr als man sieht (keine Gegner im Nebel), nur die Sichtkante kommt etwas später. Nur Anzeige, im Multiplayer unbedenklich. Launcher: „Mods & Extras“ → „Ruhigeres Radar“ (Registry `RadarCalm`, standardmäßig an). Simuliert, im Spiel ungetestet. Bestätigungstest ohne Build: `FogRegrowRate` per Mod hochsetzen, dann sollte das Flackern auch ohne Beruhigung verschwinden.
+
+### (Alt) Bug: Radar flackert an Klippen (gemeldet 15.11.)
+An Klippen und Abhängen wechseln im Radar einzelne Pixel hin und her, als wüsste das Radar nicht, wo Klippe und Sand aufhören (Screenshots vom Projektinhaber). ReShade ist es nicht (aus = Fehler bleibt). Die HD-Werkstatt ist es vermutlich auch nicht: Die Radar-Texturen (`!05%RadarRing`, `!05%radarline_32`, `!05%map*`) beginnen mit `!` und werden ausgelassen, das Radarbild selbst erzeugt das Spiel zur Laufzeit. Noch zu testen: Grafikstil „Original“ (ohne dgVoodoo-2x/Lanczos) und eine 4:3-Auflösung (ohne Breitbild-Seitenleiste). Bleibt es, liegt es am Spiel: dann den Radar-Code in Game.exe suchen (Strings „Radar“, „No radar sweep mesh …“, `Radar\%s.ini`).
+
+### Wegfindung: Befund aus dem ersten Stau-Test (15.11.)
+Log vom Projektinhaber (Karte #M30 Da'Ja Sada, ~150 eigene Einheiten): 82 Meldungen, fast alle nach 8–19 s frei, nie mehr als 3 gleichzeitig fest. Blockiert wurden die eigenen Einheiten fast immer von anderen **laufenden** eigenen Einheiten nahe dem Ziel, kaum von stehenden. Der Projektinhaber beschreibt es so: Die Einheiten laufen chaotisch los und kommen nur einzeln an, bis sie sich durchgeschoben haben. Kriechen oder Pendeln im Pulk erkennt der Melder bisher nicht (Messung startet bei jeder kleinen Bewegung neu). Gewünscht: **Formation behalten** und **gleiches Tempo** (langsamste Einheit), zuerst nur Einzelspieler und abschaltbar. Spielstände `Test.igs`, `Test2.igs`, `Test3.igs` liegen beim Projektinhaber.
 
 ### Ausprobiert und verworfen
 - Bodentexturen der Karten hochrechnen: Das Spiel lädt `test.tga` zwar in jeder Größe, aber man sieht keinen Unterschied (siehe reverse-engineering.md).

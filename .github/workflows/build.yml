@@ -15,7 +15,7 @@ jobs:
   build:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check the version string is consistent across the repo
         shell: bash
@@ -28,14 +28,14 @@ jobs:
           echo "version $launcher is consistent"
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Build and package (Release/x86)
         shell: pwsh
         run: .\package.ps1 -Version ci -PlatformToolset v143
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: EmperorSpice-ci
           path: |
