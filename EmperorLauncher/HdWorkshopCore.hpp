@@ -33,7 +33,7 @@ namespace hdCore
 
   inline const char kHdMarker[] = "EmperorSpice\\HDTextures.txt";
   inline const char kModMarker[] = "EmperorSpice\\ModPack.txt";
-  inline const char kRecipeVersion[] = "HD textures v5 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts; fonts and UI markers kept)";
+  inline const char kRecipeVersion[] = "HD textures v6 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts; fonts and UI markers kept; original colours)";
 
   // The game hangs at the main menu with one big uncompressed archive (340 MB, tested 15.11.). So the
   // result is written like the game's own archives: zlib-compressed entries, split into parts that are
@@ -377,12 +377,16 @@ namespace hdCore
   inline Img finish(const Job& job, const Img& up4)
   {
     const int w = job.original.w, h = job.original.h;
+    // colour reference: the original, transparent texels filled like before upscaling
+    Img reference = hdImage::rgbOf(job.original);
+    if (!job.key.empty()) hdImage::fillMasked(reference, job.key);
     Img rgb;
     int fw, fh;
     if (job.item.kind == KindIcon)
     {
       fw = 2 * w; fh = 2 * h; // 64 -> 128
       rgb = hdImage::resizeLanczos(up4, fw, fh);
+      hdImage::restoreColour(rgb, hdImage::descan(reference), 1.0f);
       hdImage::clampTo8bit(rgb);
     }
     else if (job.item.kind == KindTerrain)
@@ -390,6 +394,8 @@ namespace hdCore
       rgb = hdImage::crop(up4, 4 * job.pad, 4 * job.pad, 4 * w, 4 * h);
       rgb = hdImage::dampSandLines(rgb);
       fw = 4 * w; fh = 4 * h;
+      hdImage::restoreColour(rgb, reference, 1.0f);
+      hdImage::clampTo8bit(rgb);
     }
     else
     {
@@ -399,6 +405,7 @@ namespace hdCore
       hdImage::fillMasked(r, key4);
       fw = 2 * w; fh = 2 * h;
       rgb = hdImage::resizeLanczos(r, fw, fh);
+      hdImage::restoreColour(rgb, reference, 0.5f);
       hdImage::clampTo8bit(rgb);
       hdImage::restoreHouseColour(rgb, job.original);
     }
