@@ -1,6 +1,6 @@
 # Emperor Spice: Projektstand
 
-Stand: 13.11.2026 · Repo: https://github.com/badrig217/EmperorSpice · Aktuelles Release: **v1.1** (7.11.2026)
+Stand: 14.11.2026 · Repo: https://github.com/badrig217/EmperorSpice · Aktuelles Release: **v1.1** (7.11.2026)
 
 ## Worum es geht
 
@@ -19,6 +19,13 @@ Alles davon hat der Projektinhaber auf Windows 11, deutsche Version, 2560×1440,
 
 ## Offen
 
+## Ziel: „Emperor Spice Remaster“ (Vision des Projektinhabers, 14.11.)
+Vorbild: **Mass Effect Legendary Edition**. Die alte Engine bleibt, drumherum wird alles modernisiert, damit sich das Spiel 2026 zeitgemäß anfühlt.
+- Fertig: moderne Auflösungen, Breitbild, Schrift, Kamera-Zoom; Grafikstil HD (Kantenglättung, Licht, Farben); Stabilität, Multiplayer, Wine, Mods.
+- In Arbeit: **Grafik-Werkstatt** im Launcher (Icons, Texturen, Boden per KI + Remaster, beim Spieler lokal, als Mod eingebunden, mit Fortschrittsanzeige). Gebaut, Spieltest steht aus (siehe unten).
+- Später: Seitenleiste/Oberfläche neu in HD; **Videos** in HD (Bink 640×480 → KI-Video, eigene Wiedergabe über den Film-Hook; erst Test mit einer kurzen `.bik`); Bugfixes des Originals; Komfort (Steuerung, Speicherstände, Auflösung automatisch).
+- Grenzen: 3D-Modelle und Animationen bleiben von 2001; keine modernen Materialien (Normal Maps) in der Engine, der moderne Look wird in die Texturen gebacken.
+
 ### Pull Requests / Branches
 - PR #7 (Wine/Proton), #8 (Projektstand) und #9 (Mod-Ordner) sind gemergt, aber noch in keinem Release. Wine ist ungetestet.
 - Lokale Branches (`large-font`, `camera-zoom`, `mp-hardening`, `release-1.1`, `cleanup`, `german-support`) sind gemergt und können gelöscht werden.
@@ -34,11 +41,76 @@ Alles davon hat der Projektinhaber auf Windows 11, deutsche Version, 2560×1440,
 ### Community-Tools gesichtet (13.11.)
 Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtdateien einer Karte, `rules.txt`. Offen: ob das Spiel lose Dateien in `Data\<PREFIX>\` lädt (der Visual Mod Creator nutzt `Data\Model\rules.txt`). Die Tools selbst liegen nicht im Repo.
 
+### Grafik-Werkstatt im Launcher (Branch `hd-workshop`, gebaut 14.11., Spieltest steht aus)
+**Bedienung:** Im Launcher unter „Grafik“ das Häkchen **„HD-Texturen (KI)“** und der Knopf **„Erzeugen…“** (danach „Neu erzeugen…“). Erzeugt wird nur auf Knopfdruck bzw. nach Rückfrage beim Anhaken. Fortschrittsfenster mit Balken, „x von y Texturen“, Restzeit und „Abbrechen“. Registry: `HDTextures` (0/1).
+
+**Ablauf** (`EmperorLauncher/TextureWorkshop.*`, `HdWorkshopCore.hpp`, `HdImage.hpp`, `TextureWorkshopUi.hpp`):
+- Liest alle `Textures\*.tga` aus den 3DDATA-Archiven (je Name die neueste; Archive mit Mod- oder HD-Markierung zählen nicht) und die Bodentextur-Liste aus den `test.xbf` der Karten (MAPS-Archive).
+- Sortiert: Icons (mit `Grey_`-Gegenstück, meist 64×64, dazu Wurm/Todeshand 60×60 und Guild Maker 54×50) → Effekte (auslassen: `!`, `@`, `%` am Anfang, flash/spot/halo/beam/glow/muzzle) → Boden → Modell-Texturen. Ausgelassen: kleiner als 16 oder größer als 256 px (`ground.tga` = Kampagnen-Karte, `ring1_512.tga` = Oberfläche der Kampagnenkarte, `arrw_nw.tga` = Sammelbild mit Pfeilen/Markierungen), 8×8-Farbfelder, nur Magenta, ein Palettenbild.
+- In Paketen zu 48 Stück: Vorbereiten → `hdtools\realesrgan-ncnn-vulkan.exe` (ohne Fenster, Ausgabe in `hdtextures\realesrgan.log`) → Nachbearbeitung in bis zu 4 Threads → direkt ins Archiv schreiben (wenig Speicher, der Launcher ist 32 Bit).
+- Ergebnis: `<Spiel>\hdtextures\3DDATA_HD_01.RFH/.RFD`, `_02` … (je ≤ 40 MB, gepackt) mit Markierung `EmperorSpice\HDTextures.txt`, zusammen ca. 200 MB. Beim „Spielen“ mit Häkchen wird es als nächstes freies `3DDATA00xx` nach DATA verschoben, ohne Häkchen wieder heraus (dahinterliegende Archive rücken nach). Mods gewinnen weiter, weil ihre Einträge neuer sind.
+
+**Rezepte** (aus den Test-Mods, im Spiel getestet):
+- **Icons:** Scanlines entfernen (vertikaler [1,2,1]/4-Filter), Real-ESRGAN x4plus 4-fach, Lanczos auf doppelte Größe (128 px). Gefiel besser als 3D-Neu-Rendern.
+- **Texturen:** Magenta mit Nachbarfarben füllen → Real-ESRGAN 4-fach → „Remaster dezent“ (Relief 0.45, Staub 0.6, Kanten 0.6, Struktur 0.8) → Lanczos auf **2-fach** (4-fach treppte; Mipmaps waren nicht die Ursache) → **Hausfarbe** zurück: Pixel, die im Original reines Blau sind (R=G=0), werden wieder exakt reines Blau in den Original-Stufen, sonst färbt das Spiel sie nicht in der Spielerfarbe → Magenta-Schlüssel exakt zurück (erst ganz am Ende, so gibt es keine rosa Ränder) → Alpha aus dem Original hochskaliert.
+- **Boden** (176 Texturen, gekachelt): Wrap-Padding, Real-ESRGAN **4-fach, ohne Remaster**, zuschneiden, feine dunkle Linien nur in glatten Sandflächen dämpfen (sonst Linienraster auf Sandrampen). Fels, Klippen, Eis bleiben.
+
+**Geprüft:** Rechenkern unter Linux gegen die Test-Mods (Boden praktisch gleich, Abweichung 0,3; Icons/Gebäude sichtbar gleich, Unterschiede nur durch ncnn statt PyTorch und anderes Rauschen). Windows-Teil mit MinGW unter Wine: Real-ESRGAN-Start, Abbrechen (Prozess wird beendet, Arbeitsordner gelöscht), Fehlermeldung ohne Vulkan, kompletter Lauf über die Launcher-Oberfläche, Ein-/Ausschalten beim „Spielen“. Prüfwerkzeug: `tools/hdworkshop-check/` (läuft mit der Linux-Version von Real-ESRGAN).
+
+**Mitgeliefert:** `hdtools\` (38 MB) aus dem offiziellen Real-ESRGAN-Release v0.2.5.0, per SHA256 geprüft von `fetch-hdtools.ps1`: Programm, `vcomp140.dll`, Modell x4plus, `LICENSES.txt`. Ohne Vulkan-Treiber gibt es eine Fehlermeldung (kein Ersatzweg).
+
+**Spiel hing beim Hauptmenü (15.11.), behoben:** Das Spiel liest jedes 3DDATA-Archiv beim Start **komplett in den Speicher** (Game.exe `0x403bf7`: `_stat` → `malloc(Dateigröße)` → `fread`), und Game.exe ist 32 Bit ohne „Large Address Aware“. Ein 340-MB-Archiv am Stück ließ sich nicht anlegen, das Spiel blieb nach „ResourceLibrary Initialise data\maps“ stehen. Jetzt: Einträge zlib-gepackt wie im Original (miniz, Stufe 9, ca. 59 % der Rohgröße) und aufgeteilt in Teile zu höchstens 40 MB (`hdtextures\3DDATA_HD_01…`, jedes mit Markierung, `version.txt` mit der Rezeptversion). Alte Ergebnisse werden beim Neu-Erzeugen gelöscht, ohne passende Version gilt „nicht erzeugt“. Falls der Speicher trotzdem knapp wird: Ausweg wäre ein Hook, der unsere Teile nicht vorlädt.
+
+**Eigentliche Ursache gefunden (15.11., per TextureTrace):** Das Spiel hing direkt nach dem Laden von `Standard.tga`, der **Schrift-Textur**. Schriften schneidet das Spiel nach Pixelpositionen aus, eine doppelt so große Schrift-Textur bringt es durcheinander. Schrift-Texturen (`font*`, `small*`, `standard*`: font3d, font3dsmall, small, small0, small1, Standard) bleiben jetzt original (Rezept v4). Packen und Aufteilen bleibt trotzdem drin (spart Speicher).
+
+**UI-Markierungen bleiben original (15.11., Rezept v5):** Ringe (Auswahl, Reichweite, Reparatur), Wegpunkt-Pfeile (`waypointchevron`, `vectorchevron`), `powerbar`, Icon-Sammelbilder (`hkicons3`), Sprachflaggen (`Flag_GR/KO/UK/USA`): Relief und Staub des Remasters passen nicht zu flacher UI-Grafik (Hinweis vom Projektinhaber: grüner Ring). Die Hausflagge `at_flag*` ist eine echte Modell-Textur und bleibt im Rezept.
+
+**Erstes Match mit HD-Texturen (15.11.):** läuft. Ruckel-Protokoll: nach dem Laden 30 s mit einigen Rucklern (bis 617 ms, Nachladen), danach durchgehend ~60 fps, einzelne Bilder 50–80 ms, ein Hänger 186 ms kurz nach einer Marke (viele Einheiten losgeschickt).
+
+**Originalfarben (15.11., Rezept v6):** Hinweis des Projektinhabers: hochgerechnete Texturen wirken kräftiger als das Original. Gemessen: der Staub des Remasters färbt neutrales Metall bräunlich (Bauhof-Platte), die KI vertieft dunkle Bereiche. Neuer Schritt `restoreColour` (HdImage.hpp): die geglättete Farbe (Cb/Cr) des Ergebnisses wird durch die geglättete Farbe des Originals ersetzt (Radius ca. 1 Original-Pixel), dazu die geglättete Helligkeit (Radius ca. 2 Original-Pixel) – Icons und Boden voll, Modell-Texturen zur Hälfte (Relief bleibt). Schärfe und Details bleiben. Danach liegen Farbkraft und Helligkeit der Testtexturen auf dem Original (Abweichung meist unter 1 %).
+
+**Erster Praxiswert:** Erzeugen dauerte beim Projektinhaber (RX 7800 XT) etwa **5 Minuten**.
+
+**Noch offen:** Spieltest im Spiel (Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).
+
 ### Roadmap (vom Projektinhaber bestätigt, Schwerpunkt: **bessere Grafik**)
-1. **Bild:** Grafikstil HD (PR #10, fertig). Danach **höchste Modell-Detailstufe erzwingen** (H0 statt H1/H2/M3, gerade mit Zoom sichtbar, noch nicht untersucht). Danach eventuell Icons aus den 3D-Modellen neu rendern (groß).
+1. **Bild:** Grafikstil HD (PR #10). Höchste Modell-Detailstufe erzwingen: **untersucht, bringt nichts** (H0/H1/H2/M3 sind Schadensstufen, die Detailstufe steht schon auf High, siehe reverse-engineering.md). Bleibt: eventuell Icons aus den 3D-Modellen neu rendern (groß).
 2. **Steuerung:** Komfortfunktionen. Was der Projektinhaber vermisst, ist noch nicht gefragt.
 3. **Technik:** Der Launcher soll beim ersten Start die Monitorauflösung vorschlagen statt 1280×720. Das ist klein und wirkt groß. Außerdem Multiplayer ohne Portfreigabe (schwer: Vermittlungsserver oder ZeroTier/Tailscale) und Speicherstände in „Dokumente“.
 4. **Gefühl:** Effekte und Stimmung (zum Teil schon im HD-Preset).
+
+### Launcher-Umbau (geplant nach dem HD-Test, eigener PR, abgesprochen 15.11.)
+- Größeres Fenster (ca. 960×640), links Navigation, rechts nur der gewählte Bereich, **„Spielen“ immer unten rechts** mit Statuszeile (z. B. „Spiel gefunden · HD an“).
+- Bereiche: **Start** (Spielen, Sprache, Verknüpfung, Hilfe) · **Grafik** (Bild, Bewegung, HD-Texturen mit Status) · **Mehrspieler** · **Mods & Extras** (Mods, Mod-Ordner, große Meldungen, Geld-Cheat) · **Problemlösung** (Mauszeiger immer zeigen, Maus nicht einfangen, je mit einem Satz Erklärung) · **Protokoll** (emperor.txt, Ruckel-Protokoll, beim Start pausieren).
+- **Schalter Hell/Dunkel**, wird gemerkt (Registry). Die Standard-Windows-Steuerelemente (vor allem Häkchen und Auswahllisten) lassen sich nicht sauber dunkel färben, deshalb werden sie selbst gezeichnet.
+
+### Für später notiert (14.11.)
+- **Große Oberflächen-Texturen** mitnehmen, wenn Seitenleiste/Menüs drankommen: `ground.tga` (512×512, gemalter Sand/Fels, vermutlich Hintergrund der Kampagnenkarte) und `ring1_512.tga` (512×512, Oberfläche der Kampagnenkarte mit Bogen, Kugeln, Schriftzug „CAMPAIGN MAP“). Schrift braucht eine eigene Behandlung, die KI verschmiert sie. `arrw_nw.tga` (384×1584, Sammelbild mit Pfeilen/Markierungen auf Magenta) bleibt pixelgenau original.
+
+### Problem des Originals: Wegfindung (gemeldet vom Projektinhaber, 14.11., noch nicht untersucht)
+Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a. auf FED2k), also noch nicht bestätigt. Beschriebene Probleme:
+- Große Einheiten (z. B. Minotaurus der Atreides) bleiben an kleinen Hindernissen hängen, drehen kurz vor dem Ziel um oder laufen in die falsche Richtung.
+- Sammler blockieren sich an Raffinerien und schmalen Klippenrampen.
+- Gemischte Gruppen: schnelle Einheiten rennen voraus, langsame drehen sich an Engstellen im Kreis.
+- Ruckler/Hänger, wenn große Gruppen Befehle bekommen und die Ziellinien („target lines“) gezeichnet werden. Bekannter Workaround: Ziellinien im Optionsmenü ausschalten.
+
+**Ruckel-Protokoll (gebaut 14.11., PR #12):** `EmperorHooks/PerfLog.cpp`, im Launcher unter „Fehlersuche“ → „Ruckel-Protokoll“ (Registry `PerfLog`, vorerst standardmäßig an). Misst in `EndScene` die Zeit zwischen zwei Bildern, nur in Missionen (Flag `0x817c0c`). Schreibt nach `data\emperor.txt`: jedes Bild über 100 ms (max. 20 Zeilen je 30 s, mit Hinweis, wenn das Spiel im Hintergrund war), alle 30 s eine Zusammenfassung (fps, langsamstes Bild, Ruckler > 50 ms, Hänger > 100 ms), Missionsstart/-ende und eine Marke per **Strg+Umschalt+L**. Ob die Ziellinien an sind, steht nicht im Log: Die Option `ShowTargetLines` liegt in einer Einstellungstabelle (Zugriff bei `0x4f729d`, `0x4beacb`), das ist noch nicht entschlüsselt. Deshalb im Test einmal mit und einmal ohne Ziellinien spielen.
+
+**Protokoll abschaltbar (14.11., PR #12):** Haken „Protokoll (emperor.txt)“ unter „Fehlersuche“ (Registry `LogFile`, vorerst an). Aus = es wird nichts auf die Platte geschrieben, ein altes `emperor.txt` wird gelöscht, das Ruckel-Protokoll ist dann auch aus (ausgegraut). Wunsch des Projektinhabers: Für das fertige Release soll Protokollieren optional sein, weil Spieler das nicht mögen. **Vor dem Release entscheiden, ob beides standardmäßig aus sein soll** (dann bei Problemen: „Haken setzen, Fehler nachstellen, emperor.txt schicken“).
+
+**Debug-Log (15.11., PR #12):** Ein Haken „Debug-Log“ unter „Fehlersuche“ ersetzt „Protokoll“ und „Ruckel-Protokoll“ (Registry `DebugLog`, übernimmt den alten Wert `LogFile`; vorerst standardmäßig an). Aus = nichts wird geschrieben, alte Dateien werden gelöscht. An = alles:
+- `emperor.txt`: Uhrzeit vor jeder Zeile; Steckbrief beim Start (Launcher-Version, Windows/Wine, CPU, RAM, Grafikkarte + Treiber, Desktop-Modus, alle Launcher-Einstellungen, Game.exe, Archive in DATA mit Kennzeichnung [mods]/[HD textures]/[HD fonts], Speicher); Spielmeldungen; Ruckler (PerfLog); geladene Texturen bis zur ersten Mission (TextureTrace); Speicher alle 60 s und beim Missionsstart (genutzt, freier Adressraum, größter freier Block); **Hänger-Wächter** (15 s kein Bild und keine Logzeile → Stelle im Hauptthread mit Aufrufkette, bis zu 6 Meldungen); **Absturz-Bericht** (Ausnahme, Modul+Offset, Register, Aufrufkette) und `emperor_crash.dmp` (Minidump). Code: `EmperorHooks/DebugLog.cpp`, `Log.cpp`.
+- `launcher.txt` (`EmperorLauncher/LauncherLog.hpp`): Version, Ordner, Game.exe-MD5, Einstellungen beim Spielen, Ergebnis von Grafik-Paket/Schrift/Mods/HD-Texturen, Grafik-Werkstatt (Dauer, Fehler), Start und Exit-Code von Game.exe.
+- Unter Wine getestet: Steckbrief, Hänger-Meldung mit richtiger Aufrufkette, Absturz-Bericht mit Dump.
+- Karte und Spieler stehen schon in den Spielmeldungen („Map: …“, „gSetupInit list…“).
+
+**Auswahl-Limit 64 (15.11.):** Beim Rahmen-Aufziehen sind höchstens 64 Einheiten auswählbar. Das ist in Game.exe die Größe fester Listen, keine einzelne Zahl (Details in `reverse-engineering.md`). Anheben wäre ein großer, riskanter Umbau (auch Multiplayer/Spielstände). Das eigentliche Problem des Projektinhabers: nicht ausgewählte eigene Einheiten machen keinen Platz, und die ausgewählten verkeilen sich. Ansatz für später: Ausweich-Verhalten untersuchen (warum stehende eigene Einheiten nicht ausweichen).
+
+Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
+1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
+2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
+3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
+4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
 ### Ausprobiert und verworfen
 - Bodentexturen der Karten hochrechnen: Das Spiel lädt `test.tga` zwar in jeder Größe, aber man sieht keinen Unterschied (siehe reverse-engineering.md).

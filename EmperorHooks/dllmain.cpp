@@ -14,6 +14,9 @@
 #include "WrapWinsock.hpp"
 #include "Log.hpp"
 #include "MoneyCheat.hpp"
+#include "PerfLog.hpp"
+#include "TextureTrace.hpp"
+#include "DebugLog.hpp"
 #include "CameraZoom.hpp"
 #include "ReShadeAddon.hpp"
 #include "LargeFont.hpp"
@@ -99,6 +102,8 @@ void runHooks()
 {
   Settings settings;
   settings.readSettings();
+  setLogToFile(settings.debugLog); // before anything is logged
+  initDebugLog(settings.debugLog);  // system profile, crash report, hang watchdog
 
   if (settings.pauseOnStartup)
     MessageBoxA(nullptr, "Press OK to continue", "EmperorHooks", MB_OK);
@@ -136,6 +141,8 @@ void runHooks()
 
   // Optional single-player money cheat (polled from EndScene).
   initMoneyCheat(settings.moneyCheat);
+  initPerfLog(settings.debugLog);      // stutters
+  initTextureTrace(settings.debugLog); // texture loads until the first mission
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).

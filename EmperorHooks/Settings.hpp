@@ -58,8 +58,17 @@ public:
   // dgVoodoo, ambient occlusion + indirect light (Glamarye), bloom, CAS sharpening). Launcher only.
   int graphicsStyle = 0;
 
-  // Single-player money cheat (Ctrl+Shift+G = +25,000 credits). Off by default, never active in multiplayer.
+  // Grafik-Werkstatt: use the AI-upscaled HD textures (made by the launcher on request, see
+  // EmperorLauncher/TextureWorkshop.hpp). Off until the player has generated them. Launcher only.
+  bool hdTextures = false;
+
+  // Single-player money cheat (Ctrl+Shift+M = +25,000 credits). Off by default, never active in multiplayer.
   bool moneyCheat = false;
+
+  // Debug log: data\emperor.txt with everything we record - game messages, system profile, crash report,
+  // hang watchdog, memory, stutters (PerfLog), texture loads until the first mission - plus launcher.txt.
+  // Off = nothing is written. On by default for now while we test; decide before the release.
+  bool debugLog = true;
 
   // Large in-game text: the game's two text fonts at 2x size (Emperor Spice HD fonts). Off by default.
   bool largeFont = false;
@@ -159,6 +168,16 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
+    std::optional<std::string> debugLogTemp = regReadString(key, "DebugLog");
+    if (!debugLogTemp)
+      debugLogTemp = regReadString(key, "LogFile"); // earlier test builds: "Log file" box
+    if (debugLogTemp)
+      debugLog = *debugLogTemp == "1";
+
+    std::optional<std::string> hdTexturesTemp = regReadString(key, "HDTextures");
+    if (hdTexturesTemp)
+      hdTextures = *hdTexturesTemp == "1";
+
     std::optional<std::string> modsTemp = regReadString(key, "Mods");
     if (modsTemp)
       mods = *modsTemp == "1";
@@ -196,6 +215,8 @@ public:
     regWriteString(key, "CameraZoom", std::to_string(cameraZoom));
     regWriteString(key, "LargeFont", largeFont ? "1" : "0");
     regWriteString(key, "Mods", mods ? "1" : "0");
+    regWriteString(key, "HDTextures", hdTextures ? "1" : "0");
+    regWriteString(key, "DebugLog", debugLog ? "1" : "0");
 
     RegCloseKey(key);
   }

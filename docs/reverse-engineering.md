@@ -62,9 +62,26 @@ Werkzeuge: `tools/re/re_tools.py` (pefile + capstone), `tools/re/rfd.py` (Archiv
 - MSAA in dgVoodoo **hängt das Spiel auf**. Supersampling über `[DirectX] Resolution = 2x` mit `Resampling = lanczos-3` ist der Test-Stand.
 - ReShade wird von EmperorHooks per `LoadLibrary("ReShade32.dll")` aus dem data-Ordner geladen. Ein Proxy über dxgi/d3d11 funktioniert mit dgVoodoo nicht.
 - Tiefe für ReShade: Im Gefecht passt `RESHADE_DEPTH_LINEARIZATION_FAR_PLANE=1.5`, nicht umgedreht, nicht kopfüber. Das Hauptmenü ist eine 3D-Szene, deren Tiefe Glamarye nicht verträgt (Bild schwarz). Deshalb schaltet `ReShadeAddon.cpp` solche Effekte ab, solange das Missions-Flag `0x817c0c` 0 ist.
-- Modelle gibt es in Detailstufen (`*_H0/H1/H2/M3.xbf`, „Cached …“ im Log). Idee: immer die höchste Stufe erzwingen. **Noch nicht untersucht.**
+- **Modell-Dateinamen `*_H0/H1/H2/M3/HC.xbf` sind keine Entfernungs-LODs, sondern Schadensstufen** (untersucht 13.11.):
+  - Name wird bei `0x4f7c50` gebaut: `sprintf("%s%s_%c%c.xbf", …)`. Buchstabe = `"LMH"[[0x60f700]]`, Ziffer = `"C0123"[slot]`.
+  - `[0x60f700]` = Spieloption **ModelLOD** (0 = Low, 1 = Medium, 2 = High), wird bei Missionsstart aus den Grafik-Einstellungen kopiert (`0x576745`). Standard und im Log des Testers: **H**, also schon die höchste Stufe. Fehlt eine Datei, probiert das Spiel die anderen Buchstaben (daher `M3`, ein `H3` gibt es nicht).
+  - Slot-Auswahl bei `0x4fc7a0`: Verhältnis aktuelle/maximale Lebenspunkte. Über 0,66 (`[0x5d4408]`) → Slot 1 (`H0`, heil), über 0,33 (`[0x5d4404]`) → Slot 2 (`H1`), über 0 → Slot 3 (`H2`), sonst Slot 4 (`M3`, Ruine). Typen 0x35–0x37 → Slot 0 (`HC`, im Bau).
+  - Ergebnis: Es gibt keine gröberen Modelle bei weitem Zoom. **„Höchste Detailstufe erzwingen“ bringt nichts**, das Spiel nutzt sie schon.
 
 ## Netzwerk (WOL-Emulation aus Emperor Reborn)
 
 - IRC-ähnlicher Server auf TCP 4005, dazu ein UDP-Proxy (WolProxyServer/Client). Bei v1.1 abgesichert: unbekannte Befehle werden ignoriert, die Zahl der Verbindungen und die Puffer sind begrenzt, der Client akzeptiert nur Pakete vom eigenen Host.
 - Wine/Proton: `OaEnablePerUserTLibRegistration` muss dynamisch geladen werden (PR #7).
+
+## Archive loading and textures (found 15.11.2026, HD texture hang)
+- `0x402f90` reads the RFH indexes `PREFIX0001.RFH`… with `fopen`/`fread` until the first gap; fields per entry go to a 0x20 struct (+4 ts, +8 flags, +0xC stored, +0x10 raw, +0x1C offset, +0x14 name), inserted via `0x4038b0`.
+- `0x403b70` opens the RFDs. If the library flag `[this+0x97c]` is set, every RFD is read **completely into one malloc block** (`_stat` → `malloc(size)` → `fread`). Game.exe is 32 bit without Large Address Aware.
+- `0x403490` `ResourceLibrary::Load(name, uint32* size, 0, 0)` (thiscall, `ret 0x10`) returns the file data. The texture loader at `0x54c2b8` builds `TEXTURES\name`, calls it and logs "Failed to find texture %s" on 0, then creates the texture with `0x417810(data, info)` (cdecl).
+- Diagnostic hook: `EmperorHooks/TextureTrace.cpp` logs both calls until the first mission.
+
+## Selection limit 64 (looked at 15.11.2026, not changed)
+The player can select at most 64 units (box selection, reported by the project owner). In Game.exe 64 is not one
+setting but the size of fixed lists: e.g. an array of 64 entries at `[obj+0x34]` (`0x4ba0c1`–`0x4ba102`,
+`0x4bcb07`–`0x4bcb0d`), stack arrays of 64 (`0x4bb4ac`–`0x4bb4b7`), and about 50 more `cmp reg, 0x40` checks,
+many in `0x4b7d32`–`0x4be829`. Raising the limit would mean moving these lists into bigger memory and changing
+every access; orders in multiplayer and save games probably carry the same lists. Big and risky, not planned.

@@ -10,6 +10,8 @@
 #include "Error.hpp"
 #include "Log.hpp"
 #include "MoneyCheat.hpp"
+#include "PerfLog.hpp"
+#include "DebugLog.hpp"
 #include "PickingTracer.hpp"
 #include "MovieFix.hpp"
 #include "SmoothScroll.hpp"
@@ -51,7 +53,9 @@ HRESULT STDMETHODCALLTYPE My_IDirect3DDevice7_EndScene(IDirect3DDevice7* This)
     tracerNoteThread();
 
   smoothScrollUpdateFrame(); // refresh the frame-time scroll multiplier (no-op unless smooth scroll is on)
-  moneyCheatUpdateFrame();   // Ctrl+Shift+G money cheat (no-op unless enabled in the launcher)
+  moneyCheatUpdateFrame();   // Ctrl+Shift+M money cheat (no-op unless enabled in the launcher)
+  perfLogFrame();            // stutter log (part of the debug log)
+  debugLogFrame();           // hang watchdog heartbeat, crash handler refresh
 
   LARGE_INTEGER nextFrameTime = {};
   nextFrameTime.QuadPart = lastFrameTime.QuadPart + qpcFreq.QuadPart / targetFps;
