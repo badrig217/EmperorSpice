@@ -30,7 +30,7 @@
 - **Große Meldungen und Hinweise im Spiel** (neu in 1.1): die kleine Spielschrift doppelt so groß und scharf, neu gezeichnet aus der freien Schrift DejaVu Sans. Ab 1440p wird sie automatisch vorgeschlagen.
 - **Mods ganz einfach** (neu): Dateien in den Ordner `mods` legen, der Launcher baut daraus beim Start die Spielarchive. Originaldateien als Vorlage holt `modding\Extract game files.cmd`. Anleitung: [modding/MODDING.md](modding/MODDING.md).
 - **HD-Texturen per KI** (neu, optional): Die Grafik-Werkstatt im Launcher rechnet die Texturen deines Spiels auf deinem PC mit KI (Real-ESRGAN) hoch: schärfere Bau-Icons, überarbeitete Einheiten und Gebäude mit erhaltener Spielerfarbe, schärferer Boden. Dauert einmalig etwa 5 bis 30 Minuten, danach per Häkchen an- und abschaltbar. Braucht eine Grafikkarte mit Vulkan (praktisch alle aktuellen).
-- **Geld-Cheat** (optional, nur Einzelspieler): im Launcher unter „Extras“ einschalten, dann gibt **Strg+Umschalt+M** im Spiel +25.000 Credits. Im Multiplayer ist er gesperrt.
+- **Geld-Cheat** (optional, nur Einzelspieler): im Launcher unter „Mods & Extras“ einschalten, dann gibt **Strg+Umschalt+M** im Spiel +25.000 Credits. Im Multiplayer ist er gesperrt.
 
 
 <p align="center"><img src="screenshots/launcher-de.png" alt="Launcher" width="420"></p>
@@ -82,9 +82,9 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 
 ### Probleme?
 
-- **Das Spiel startet nicht / hängt:** Im Ordner `data` liegt die Protokolldatei `emperor.txt`. Hänge sie bei einem [Issue](../../issues) an. Fehlt sie, ist im Launcher unter „Fehlersuche“ der Haken **„Debug-Log“** aus: einschalten, Fehler nachstellen. Das Debug-Log schreibt außerdem `launcher.txt`, bei einem Absturz `emperor_crash.dmp` und meldet Hänger und Ruckler. Ohne den Haken wird nichts aufgezeichnet.
+- **Das Spiel startet nicht / hängt:** Im Ordner `data` liegt die Protokolldatei `emperor.txt`. Hänge sie bei einem [Issue](../../issues) an. Fehlt sie, ist im Launcher unter „Protokoll“ der Haken **„Debug-Log“** aus: einschalten, Fehler nachstellen. Das Debug-Log schreibt außerdem `launcher.txt`, bei einem Absturz `emperor_crash.dmp` und meldet Hänger und Ruckler. Ohne den Haken wird nichts aufgezeichnet.
 - **Warnung „Falsche Game.exe-Version“:** Die Installation ist nicht vollständig durchgelaufen oder es wurde ein anderer Patch verwendet. Im Dialog „Nein“ wählen, um neu zu installieren.
-- **Texte im Spiel sehr klein:** Im Launcher unter „Extras“ **„Große Meldungen und Hinweise im Spiel“** anhaken. Alternativ eine der Auflösungen „Hochskaliert …, große UI“ wählen (dann wird das ganze Bild weicher).
+- **Texte im Spiel sehr klein:** Im Launcher unter „Mods & Extras“ **„Große Meldungen und Hinweise im Spiel“** anhaken. Alternativ eine der Auflösungen „Hochskaliert …, große UI“ wählen (dann wird das ganze Bild weicher).
 - **Grafik-Paket ausprobieren ohne Risiko:** Im Launcher den Grafikstil „Original“ wählen – alles ist wie vorher.
 - **HD ruckelt:** Grafikstil „Modern“ wählen.
 - **HD-Texturen lassen sich nicht erzeugen:** Grafiktreiber aktualisieren (Vulkan nötig). Details stehen in `data\hdtextures\realesrgan.log`. Ausschalten: Häkchen „HD-Texturen (KI)“ weg, dann ist alles wie vorher.
@@ -111,7 +111,7 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 - **Large in-game messages and hints** (new in 1.1): the small in-game font at 2x, sharp, redrawn from the free DejaVu Sans font. Suggested automatically from 1440p.
 - **Easy modding** (new): drop files into the `mods` folder and the launcher builds the game archives at start. `modding\Extract game files.cmd` copies the original files as a starting point. Guide: [modding/MODDING.md](modding/MODDING.md).
 - **AI HD textures** (new, optional): the graphics workshop in the launcher upscales your game's textures on your PC with AI (Real-ESRGAN): sharper build icons, reworked units and buildings that keep the player colour, sharper terrain. Takes about 5 to 30 minutes once, then a tick box switches them on and off. Needs a Vulkan graphics card (practically all current ones).
-- **Money cheat** (optional, single player only): enable it under "Extras" in the launcher, then **Ctrl+Shift+M** adds 25,000 credits. Disabled in multiplayer.
+- **Money cheat** (optional, single player only): enable it under "Mods & extras" in the launcher, then **Ctrl+Shift+M** adds 25,000 credits. Disabled in multiplayer.
 
 
 ### Requirements
@@ -130,7 +130,7 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 
 **Graphics pack:** choose the look in the launcher: Original, Modern (default) or HD (2x supersampling, bloom, stronger colours, CAS sharpening; needs a stronger GPU). Scroll Lock toggles the effects, Home opens the ReShade menu. Do **not** enable MSAA in dgVoodoo – the game hangs with it; anti-aliasing is done by ReShade (SMAA).
 
-**Problems?** Attach `data\emperor.txt` to an [issue](../../issues) (if it is missing, tick "Debug log" under Troubleshooting and reproduce the problem; also attach `launcher.txt` and, after a crash, `emperor_crash.dmp`).
+**Problems?** Attach `data\emperor.txt` to an [issue](../../issues) (if it is missing, tick "Debug log" under "Log" and reproduce the problem; also attach `launcher.txt` and, after a crash, `emperor_crash.dmp`).
 
 **Linux / Steam Deck / macOS (experimental):** Emperor Spice should start under Wine, Proton and CrossOver (e.g. via Heroic or Lutris). Untested – feedback welcome! Community tip: start the launcher with **Fullscreen off** at 1920 x 1080 and switch fullscreen on in Wine/Heroic afterwards.
 

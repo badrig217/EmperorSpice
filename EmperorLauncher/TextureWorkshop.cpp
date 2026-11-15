@@ -109,6 +109,30 @@ namespace hdTextures
     return widen(err);
   }
 
+  bool info(const fs::path& gameDir, unsigned long long& bytes, std::wstring& date)
+  {
+    bytes = 0;
+    date.clear();
+    if (!hdCore::generated(gameDir)) return false;
+    std::error_code ec;
+    for (int n = 1; n <= hdCore::cachedParts(gameDir); n++)
+      bytes += fs::file_size(hdCore::cachePart(gameDir, n, ".RFD"), ec);
+    const fs::path data = hdCore::dataDir(gameDir);
+    for (int n : hdCore::activeHdArchives(data))
+      bytes += fs::file_size(hdCore::archivePath(data, "3DDATA", n, ".RFD"), ec);
+    WIN32_FILE_ATTRIBUTE_DATA fa;
+    FILETIME local;
+    SYSTEMTIME st;
+    if (GetFileAttributesExW(hdCore::versionFile(gameDir).c_str(), GetFileExInfoStandard, &fa) &&
+        FileTimeToLocalFileTime(&fa.ftLastWriteTime, &local) && FileTimeToSystemTime(&local, &st))
+    {
+      wchar_t buf[32];
+      swprintf(buf, 32, L"%02u.%02u.%04u", st.wDay, st.wMonth, st.wYear);
+      date = buf;
+    }
+    return true;
+  }
+
   std::wstring apply(const fs::path& gameDir, bool enabled)
   {
     try

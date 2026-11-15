@@ -79,10 +79,12 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 3. **Technik:** Der Launcher soll beim ersten Start die Monitorauflösung vorschlagen statt 1280×720. Das ist klein und wirkt groß. Außerdem Multiplayer ohne Portfreigabe (schwer: Vermittlungsserver oder ZeroTier/Tailscale) und Speicherstände in „Dokumente“.
 4. **Gefühl:** Effekte und Stimmung (zum Teil schon im HD-Preset).
 
-### Launcher-Umbau (geplant nach dem HD-Test, eigener PR, abgesprochen 15.11.)
-- Größeres Fenster (ca. 960×640), links Navigation, rechts nur der gewählte Bereich, **„Spielen“ immer unten rechts** mit Statuszeile (z. B. „Spiel gefunden · HD an“).
-- Bereiche: **Start** (Spielen, Sprache, Verknüpfung, Hilfe) · **Grafik** (Bild, Bewegung, HD-Texturen mit Status) · **Mehrspieler** · **Mods & Extras** (Mods, Mod-Ordner, große Meldungen, Geld-Cheat) · **Problemlösung** (Mauszeiger immer zeigen, Maus nicht einfangen, je mit einem Satz Erklärung) · **Protokoll** (emperor.txt, Ruckel-Protokoll, beim Start pausieren).
-- **Schalter Hell/Dunkel**, wird gemerkt (Registry). Die Standard-Windows-Steuerelemente (vor allem Häkchen und Auswahllisten) lassen sich nicht sauber dunkel färben, deshalb werden sie selbst gezeichnet.
+### Launcher-Umbau (gebaut 15.11., Branch `launcher-redesign`)
+- Fenster 920×600: oben Kopfband mit Banner und Schalter **„Dunkles/Helles Design“**, links Navigation, rechts die gewählte Seite, unten Statuszeile (Auflösung · Grafikstil · HD-Texturen · Mods · Mehrspieler-Client) und **„Spielen“** immer sichtbar. Versionsnummer und Links unten in der Navigation.
+- Seiten: **Start** (Willkommen, Sprache, Desktop-Verknüpfung, Hilfe-Hinweis) · **Grafik** (Bild, Bewegung, HD-Texturen mit Status „Erzeugt am … · … MB“) · **Mehrspieler** · **Mods & Extras** · **Problemlösung** (Mauszeiger, Maus festhalten, je mit Erklärung) · **Protokoll** (Debug-Log, Beim Start pausieren).
+- Hell/Dunkel: Registry `LauncherTheme` (0 = wie Windows, 1 = hell, 2 = dunkel); Standard folgt der Windows-Einstellung „App-Modus“. Titelleiste dunkel per DWM. Häkchen und Optionsknöpfe sind eigene Steuerelemente (`SpiceCheck` in `LauncherUi.hpp`, verstehen BM_GETCHECK/SETCHECK), Knöpfe und Navigation owner-drawn; Auswahllisten und Eingabefeld bleiben Windows-Steuerelemente mit Windows' Dunkel-Design (`DarkMode_CFD`).
+- Tastatur: Tab/Pfeiltasten zwischen den Steuerelementen (IsDialogMessage).
+- Unter Wine geprüft (alle Seiten, beide Designs, Umschalten wird gespeichert). Unter Wine bleiben Auswahllisten hell umrandet; unter Windows 10/11 sollten sie dunkel sein (im Test prüfen).
 
 ### Für später notiert (14.11.)
 - **Große Oberflächen-Texturen** mitnehmen, wenn Seitenleiste/Menüs drankommen: `ground.tga` (512×512, gemalter Sand/Fels, vermutlich Hintergrund der Kampagnenkarte) und `ring1_512.tga` (512×512, Oberfläche der Kampagnenkarte mit Bogen, Kugeln, Schriftzug „CAMPAIGN MAP“). Schrift braucht eine eigene Behandlung, die KI verschmiert sie. `arrw_nw.tga` (384×1584, Sammelbild mit Pfeilen/Markierungen auf Magenta) bleibt pixelgenau original.

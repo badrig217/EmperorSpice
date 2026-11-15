@@ -43,4 +43,8 @@ namespace hdTextures
 
   // Puts the HD archive into DATA (enabled) or moves it out to the cache folder (disabled).
   std::wstring apply(const fs::path& gameDir, bool enabled);
+
+  // For the launcher's status line: size of the generated archives and when they were made
+  // (local date, e.g. "15.11.2026"). false = nothing generated with the current recipe.
+  bool info(const fs::path& gameDir, unsigned long long& bytes, std::wstring& date);
 }
