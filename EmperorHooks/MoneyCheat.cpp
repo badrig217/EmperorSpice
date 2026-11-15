@@ -31,7 +31,7 @@ namespace
 
   bool comboDown()
   {
-    return (GetAsyncKeyState(VK_CONTROL) & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000) && (GetAsyncKeyState('G') & 0x8000);
+    return (GetAsyncKeyState(VK_CONTROL) & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000) && (GetAsyncKeyState('M') & 0x8000);
   }
 
   void giveMoney()
@@ -61,7 +61,7 @@ namespace
 void initMoneyCheat(bool enabled)
 {
   gEnabled = enabled;
-  Log("MoneyCheat: %s\n", enabled ? "enabled (Ctrl+Shift+G = +25000 credits, single player only)" : "disabled");
+  Log("MoneyCheat: %s\n", enabled ? "enabled (Ctrl+Shift+M = +25000 credits, single player only)" : "disabled");
 }
 
 void moneyCheatUpdateFrame()

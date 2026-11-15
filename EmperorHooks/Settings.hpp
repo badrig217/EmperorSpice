@@ -62,7 +62,7 @@ public:
   // EmperorLauncher/TextureWorkshop.hpp). Off until the player has generated them. Launcher only.
   bool hdTextures = false;
 
-  // Single-player money cheat (Ctrl+Shift+G = +25,000 credits). Off by default, never active in multiplayer.
+  // Single-player money cheat (Ctrl+Shift+M = +25,000 credits). Off by default, never active in multiplayer.
   bool moneyCheat = false;
 
   // Stutter log: slow frames and a summary in data\emperor.txt (PerfLog.cpp). On by default for now, while we

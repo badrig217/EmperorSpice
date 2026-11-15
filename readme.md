@@ -30,7 +30,7 @@
 - **Große Meldungen und Hinweise im Spiel** (neu in 1.1): die kleine Spielschrift doppelt so groß und scharf, neu gezeichnet aus der freien Schrift DejaVu Sans. Ab 1440p wird sie automatisch vorgeschlagen.
 - **Mods ganz einfach** (neu): Dateien in den Ordner `mods` legen, der Launcher baut daraus beim Start die Spielarchive. Originaldateien als Vorlage holt `modding\Extract game files.cmd`. Anleitung: [modding/MODDING.md](modding/MODDING.md).
 - **HD-Texturen per KI** (neu, optional): Die Grafik-Werkstatt im Launcher rechnet die Texturen deines Spiels auf deinem PC mit KI (Real-ESRGAN) hoch: schärfere Bau-Icons, überarbeitete Einheiten und Gebäude mit erhaltener Spielerfarbe, schärferer Boden. Dauert einmalig etwa 5 bis 30 Minuten, danach per Häkchen an- und abschaltbar. Braucht eine Grafikkarte mit Vulkan (praktisch alle aktuellen).
-- **Geld-Cheat** (optional, nur Einzelspieler): im Launcher unter „Extras“ einschalten, dann gibt **Strg+Umschalt+G** im Spiel +25.000 Credits. Im Multiplayer ist er gesperrt.
+- **Geld-Cheat** (optional, nur Einzelspieler): im Launcher unter „Extras“ einschalten, dann gibt **Strg+Umschalt+M** im Spiel +25.000 Credits. Im Multiplayer ist er gesperrt.
 
 
 <p align="center"><img src="screenshots/launcher-de.png" alt="Launcher" width="420"></p>
@@ -111,7 +111,7 @@ Deine Änderungen im ReShade-Menü bleiben erhalten (am besten im Gefecht änder
 - **Large in-game messages and hints** (new in 1.1): the small in-game font at 2x, sharp, redrawn from the free DejaVu Sans font. Suggested automatically from 1440p.
 - **Easy modding** (new): drop files into the `mods` folder and the launcher builds the game archives at start. `modding\Extract game files.cmd` copies the original files as a starting point. Guide: [modding/MODDING.md](modding/MODDING.md).
 - **AI HD textures** (new, optional): the graphics workshop in the launcher upscales your game's textures on your PC with AI (Real-ESRGAN): sharper build icons, reworked units and buildings that keep the player colour, sharper terrain. Takes about 5 to 30 minutes once, then a tick box switches them on and off. Needs a Vulkan graphics card (practically all current ones).
-- **Money cheat** (optional, single player only): enable it under "Extras" in the launcher, then **Ctrl+Shift+G** adds 25,000 credits. Disabled in multiplayer.
+- **Money cheat** (optional, single player only): enable it under "Extras" in the launcher, then **Ctrl+Shift+M** adds 25,000 credits. Disabled in multiplayer.
 
 
 ### Requirements

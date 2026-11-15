@@ -1145,8 +1145,8 @@ int wmain(int argc, wchar_t* argv[])
   int exY = mpY + S(144);
   {
     groupBox(L"Extras", colL, exY, clientW - S(32), S(152));
-    moneyCheatCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Money cheat in single player:  Ctrl+Shift+G = +25,000 credits",
-                                                        L"Geld-Cheat im Einzelspieler:  Strg+Umschalt+G = +25.000 Credits"),
+    moneyCheatCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Money cheat in single player:  Ctrl+Shift+M = +25,000 credits",
+                                                        L"Geld-Cheat im Einzelspieler:  Strg+Umschalt+M = +25.000 Credits"),
                                         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, colL + S(14), exY + S(24), S(490), S(22), window, nullptr, nullptr, nullptr);
     // Greyed out when the launcher was built without the bundled fonts folder (developer builds).
     largeFontCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Large in-game messages and hints (2x)",
