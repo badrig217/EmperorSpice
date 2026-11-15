@@ -122,6 +122,12 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
+### Bug: Radar flackert an Klippen (gemeldet 15.11.)
+An Klippen und Abhängen wechseln im Radar einzelne Pixel hin und her, als wüsste das Radar nicht, wo Klippe und Sand aufhören (Screenshots vom Projektinhaber). ReShade ist es nicht (aus = Fehler bleibt). Die HD-Werkstatt ist es vermutlich auch nicht: Die Radar-Texturen (`!05%RadarRing`, `!05%radarline_32`, `!05%map*`) beginnen mit `!` und werden ausgelassen, das Radarbild selbst erzeugt das Spiel zur Laufzeit. Noch zu testen: Grafikstil „Original“ (ohne dgVoodoo-2x/Lanczos) und eine 4:3-Auflösung (ohne Breitbild-Seitenleiste). Bleibt es, liegt es am Spiel: dann den Radar-Code in Game.exe suchen (Strings „Radar“, „No radar sweep mesh …“, `Radar\%s.ini`).
+
+### Wegfindung: Befund aus dem ersten Stau-Test (15.11.)
+Log vom Projektinhaber (Karte #M30 Da'Ja Sada, ~150 eigene Einheiten): 82 Meldungen, fast alle nach 8–19 s frei, nie mehr als 3 gleichzeitig fest. Blockiert wurden die eigenen Einheiten fast immer von anderen **laufenden** eigenen Einheiten nahe dem Ziel, kaum von stehenden. Der Projektinhaber beschreibt es so: Die Einheiten laufen chaotisch los und kommen nur einzeln an, bis sie sich durchgeschoben haben. Kriechen oder Pendeln im Pulk erkennt der Melder bisher nicht (Messung startet bei jeder kleinen Bewegung neu). Gewünscht: **Formation behalten** und **gleiches Tempo** (langsamste Einheit), zuerst nur Einzelspieler und abschaltbar. Spielstände `Test.igs`, `Test2.igs`, `Test3.igs` liegen beim Projektinhaber.
+
 ### Ausprobiert und verworfen
 - Bodentexturen der Karten hochrechnen: Das Spiel lädt `test.tga` zwar in jeder Größe, aber man sieht keinen Unterschied (siehe reverse-engineering.md).
 - Icons 2x hochrechnen: kaum besser, die Vorlage hat nur 64 px.
