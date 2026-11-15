@@ -3,6 +3,7 @@
 #include <cstring>
 #include "GameMessage.hpp"
 #include "Log.hpp"
+#include "GameState.hpp"
 
 // Game.exe 1.09 (see docs/reverse-engineering.md, "In-game messages"):
 //   [0x8aa5c4]  message manager (0 outside a mission)
@@ -16,7 +17,7 @@ namespace
   const uint8_t kAddOrig[] = { 0x8B, 0x44, 0x24, 0x0C, 0x56, 0x8B, 0xF1 }; // mov eax,[esp+0xc]; push esi; mov esi,ecx
   bool gCodeOk = false;
 
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(0x00817c0c) != 0; }
+  using gameState::inMission;
 }
 
 void initGameMessage(bool german)

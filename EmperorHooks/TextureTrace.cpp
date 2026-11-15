@@ -4,6 +4,7 @@
 #include <detours.h>
 #include "TextureTrace.hpp"
 #include "Log.hpp"
+#include "GameState.hpp"
 
 // Game.exe 1.09 (see docs/reverse-engineering.md):
 //   0x403490  ResourceLibrary::Load (thiscall: name, uint32* size, 0, 0) -> malloc'd file data or 0.
@@ -25,7 +26,7 @@ namespace
   Create_t realCreate = reinterpret_cast<Create_t>(kCreateVa);
 
   volatile LONG lines = 0;
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(0x00817c0c) != 0; }
+  using gameState::inMission;
 
   bool active()
   {

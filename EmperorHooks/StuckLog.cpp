@@ -357,6 +357,8 @@ namespace
     // Position before the step: the step could in theory remove the unit, so it is not touched afterwards
     // (one tick of lag does not matter for an 8 second threshold).
     int frame = gameFrame();
+    if (frame < lastSyncFrame) // new game: frame counter restarted
+      lastSyncFrame = -1;
     if (frame >= 0 && frame != lastSyncFrame && frame % kSyncEvery == 0)
     {
       lastSyncFrame = frame;

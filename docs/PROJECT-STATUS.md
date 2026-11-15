@@ -122,6 +122,18 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
+### Code-Review seit v1.1 (15.11.)
+Unabhängiger Prüfer, Funde nachgeprüft, Punkte 1–8 behoben:
+1. Missions-Abfrage las nur das unterste Byte eines Zeigers (`0x817c0c`): in etwa jeder 16.–32. Mission falsch, im Multiplayer Desync. Jetzt überall `GameState.hpp`.
+2. GroupMove: Zustand wird bei einer neuen Partie zurückgesetzt (neuer Netzmanager oder Tickzähler zurück).
+3. GroupMove: Einheiten werden über ihre Spiel-Id geprüft, nicht nur über die Adresse (wiederverwendete Adresse einer zerstörten Einheit erbt nichts). Simuliert.
+4. GroupMove: Formationsziel nur für das eigene Befehlspaket; Abstand mit `sqrt` statt CRT-`hypot`.
+5. Werkstatt: Fehler in den Arbeits-Threads (z. B. Speicher voll) werden gemeldet statt Absturz.
+6. Mod- und HD-Archive: Schreibfehler beim Schließen (Platte voll) werden erkannt, halbe Dateien gelöscht.
+7. Archive verschieben/umnummerieren: schlägt der zweite Schritt fehl, wird der erste zurückgenommen (kein getrenntes RFD/RFH-Paar). Getestet.
+8. Fortschrittsfenster `std::atomic<bool>`, Größenanzeige ignoriert Lesefehler.
+Offen (Entscheidung): Gleichheit der Einstellungen im Multiplayer wird nicht geprüft; Versionsanzeige steht noch auf v1.1 bis zum Release.
+
 ### Grundregel: alles multiplayer-fest (Projektinhaber, 15.11.)
 Ziel ist später ein einfaches Matchmaking (Spieler finden sich über eine Webseite oder den Launcher). Deshalb:
 - Was nur ein Spieler sieht (Grafik, Zoom, Schrift, HD-Texturen, Logs, Info-Texte), darf jeder selbst einstellen.

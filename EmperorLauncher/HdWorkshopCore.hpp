@@ -137,6 +137,25 @@ namespace hdCore
   }
 
   // Renumber <prefix> archives so that no gap is left (keeps order).
+  // Moves both files of an archive (first, then second). If the second move fails (file locked by a
+  // virus scanner, ...), the first one is moved back, so an RFD/RFH pair is never split up.
+  inline bool movePair(const fs::path& from1, const fs::path& to1, const fs::path& from2, const fs::path& to2,
+                       std::error_code& ec)
+  {
+    std::error_code e;
+    const bool has1 = fs::exists(from1, e), has2 = fs::exists(from2, e);
+    ec.clear();
+    if (has1) fs::rename(from1, to1, ec);
+    if (ec) return false;
+    if (has2) fs::rename(from2, to2, ec);
+    if (ec)
+    {
+      if (has1) fs::rename(to1, from1, e); // roll back
+      return false;
+    }
+    return true;
+  }
+
   inline std::string compact(const fs::path& data, const std::string& prefix)
   {
     std::error_code ec;
@@ -146,13 +165,9 @@ namespace hdCore
     int target = 1;
     for (int n : present)
     {
-      if (n != target)
-        for (const char* ext : { ".RFD", ".RFH" }) // index last
-        {
-          fs::path from = archivePath(data, prefix, n, ext);
-          if (fs::exists(from, ec)) fs::rename(from, archivePath(data, prefix, target, ext), ec);
-          if (ec) return "rename " + from.filename().string() + " failed";
-        }
+      if (n != target && !movePair(archivePath(data, prefix, n, ".RFD"), archivePath(data, prefix, target, ".RFD"), // index last
+                                   archivePath(data, prefix, n, ".RFH"), archivePath(data, prefix, target, ".RFH"), ec))
+        return "rename " + archivePath(data, prefix, n, ".RFH").filename().string() + " failed";
       target++;
     }
     return "";
@@ -213,9 +228,9 @@ namespace hdCore
       if (first + parts > 100) return "no free 3DDATA archive number";
       for (int i = 0; i < parts; i++)
       {
-        fs::rename(cachePart(gameDir, i + 1, ".RFD"), archivePath(data, "3DDATA", first + i, ".RFD"), ec);   // data first,
-        if (!ec) fs::rename(cachePart(gameDir, i + 1, ".RFH"), archivePath(data, "3DDATA", first + i, ".RFH"), ec); // index last
-        if (ec) return "move HD archive into DATA: " + ec.message();
+        if (!movePair(cachePart(gameDir, i + 1, ".RFD"), archivePath(data, "3DDATA", first + i, ".RFD"),  // data first,
+                      cachePart(gameDir, i + 1, ".RFH"), archivePath(data, "3DDATA", first + i, ".RFH"), ec)) // index last
+          return "move HD archive into DATA: " + ec.message();
       }
       return "";
     }
@@ -226,9 +241,9 @@ namespace hdCore
     for (size_t i = 0; i < active.size(); i++)
     {
       const int part = int(i) + 1;
-      fs::rename(archivePath(data, "3DDATA", active[i], ".RFH"), cachePart(gameDir, part, ".RFH"), ec); // index first: game ignores it then
-      if (!ec) fs::rename(archivePath(data, "3DDATA", active[i], ".RFD"), cachePart(gameDir, part, ".RFD"), ec);
-      if (ec) return "move HD archive out of DATA: " + ec.message();
+      if (!movePair(archivePath(data, "3DDATA", active[i], ".RFH"), cachePart(gameDir, part, ".RFH"), // index first: game ignores it then
+                    archivePath(data, "3DDATA", active[i], ".RFD"), cachePart(gameDir, part, ".RFD"), ec))
+        return "move HD archive out of DATA: " + ec.message();
     }
     return compact(data, "3DDATA");
   }
@@ -464,6 +479,7 @@ namespace hdCore
     if (!stbi_write_png_to_func(sink, &bytes, im.w, im.h, im.c, px.data(), im.w * im.c)) return false;
     std::ofstream f(p, std::ios::binary | std::ios::trunc);
     f.write(bytes.data(), bytes.size());
+    f.close(); // the buffered tail is written here (disk full shows up only now)
     return bool(f);
   }
 
@@ -525,8 +541,8 @@ namespace hdCore
       if (!rfd) return false;
       std::ofstream f(cachePart(gameDir, part, ".RFH"), std::ios::binary | std::ios::trunc);
       f.write(rfh.data(), rfh.size());
-      if (!f) return false;
       f.close();
+      if (!f) return false;
       fs::rename(cachePart(gameDir, part, ".RFD.tmp"), cachePart(gameDir, part, ".RFD"), ec);
       return !ec;
     };
@@ -582,6 +598,7 @@ namespace hdCore
       std::atomic<size_t> next{ 0 };
       std::string threadError;
       auto worker = [&] {
+        try {
         for (size_t j; (j = next++) < jobs.size();)
         {
           if (progress.cancelled()) return;
@@ -603,9 +620,20 @@ namespace hdCore
           addEntry(job.item.entry.name, stored, uint32_t(tga.size()));
           written++;
         }
+        } catch (const std::exception& e) { // e.g. out of memory: report instead of std::terminate
+          std::lock_guard<std::mutex> g(writeLock);
+          if (threadError.empty()) threadError = std::string("finishing failed: ") + e.what();
+        }
       };
       std::vector<std::thread> pool;
-      for (int t = 0; t < std::max(1, threads); t++) pool.emplace_back(worker);
+      try
+      {
+        for (int t = 0; t < std::max(1, threads); t++) pool.emplace_back(worker);
+      }
+      catch (const std::exception&)
+      {
+        if (pool.empty()) worker(); // could not start any thread: do the work here
+      }
       for (auto& t : pool) t.join();
       if (progress.cancelled()) return failed("cancelled");
       if (!threadError.empty()) return failed(threadError);

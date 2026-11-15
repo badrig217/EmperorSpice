@@ -126,6 +126,7 @@ nmake</Command>
     <ClInclude Include="StuckLog.hpp" />
     <ClInclude Include="GroupMove.hpp" />
     <ClInclude Include="GameMessage.hpp" />
+    <ClInclude Include="GameState.hpp" />
     <ClInclude Include="DebugLog.hpp" />
     <ClInclude Include="CameraZoom.hpp" />
     <ClInclude Include="ReShadeAddon.hpp" />

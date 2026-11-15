@@ -32,7 +32,8 @@ namespace
 #ifndef PERFLOG_MISSION_FLAG
 #define PERFLOG_MISSION_FLAG 0x00817c0c
 #endif
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(PERFLOG_MISSION_FLAG) != 0; }
+  // a pointer (HUD object), not a byte flag: read the whole dword
+  bool inMission() { return *reinterpret_cast<volatile uintptr_t*>(PERFLOG_MISSION_FLAG) != 0; }
 
   bool gameWindowFocused()
   {

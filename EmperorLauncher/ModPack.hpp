@@ -138,13 +138,17 @@ namespace modPack
     {
       if (n != target)
       {
-        for (const wchar_t* ext : { L".RFD", L".RFH" })
+        // data first, index last; if the index cannot be moved, the data file goes back (no split pair)
+        fs::path fromD = dataDir / archiveName(prefix, n, L".RFD"), toD = dataDir / archiveName(prefix, target, L".RFD");
+        fs::path fromH = dataDir / archiveName(prefix, n, L".RFH"), toH = dataDir / archiveName(prefix, target, L".RFH");
+        std::error_code e;
+        const bool hasD = fs::exists(fromD, e), hasH = fs::exists(fromH, e);
+        if (hasD) fs::rename(fromD, toD, ec);
+        if (!ec && hasH) fs::rename(fromH, toH, ec);
+        if (ec)
         {
-          fs::path from = dataDir / archiveName(prefix, n, ext);
-          if (fs::exists(from, ec))
-            fs::rename(from, dataDir / archiveName(prefix, target, ext), ec);
-          if (ec)
-            return L"rename " + from.filename().wstring() + L" failed";
+          if (hasD && fs::exists(toD, e) && !fs::exists(fromD, e)) fs::rename(toD, fromD, e);
+          return L"rename " + fromH.filename().wstring() + L" failed";
         }
       }
       target++;
@@ -217,15 +221,22 @@ namespace modPack
     {
       std::ofstream f(rfdPath, std::ios::binary | std::ios::trunc);
       f.write(rfd.data(), rfd.size());
+      f.close(); // the buffered tail is written here (disk full shows up only now)
       if (!f)
+      {
+        std::error_code ec;
+        fs::remove(rfdPath, ec);
         return L"cannot write " + rfdPath.wstring();
+      }
     }
     {
       std::ofstream f(rfhPath, std::ios::binary | std::ios::trunc);
       f.write(rfh.data(), rfh.size());
+      f.close();
       if (!f)
       {
         std::error_code ec;
+        fs::remove(rfhPath, ec);
         fs::remove(rfdPath, ec);
         return L"cannot write " + rfhPath.wstring();
       }

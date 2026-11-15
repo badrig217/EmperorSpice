@@ -114,3 +114,6 @@ every access; orders in multiplayer and save games probably carry the same lists
 
 ## In-game messages (15.11.2026)
 - `[0x8aa5c4]` message manager (0 outside a mission). `0x4e9940` manager->Add(const char* text, 0, 0) (thiscall, `ret 0xc`, starts `8B 44 24 0C 56 8B F1`) shows a line in the game's message area and copies the text (`0x4e9820`/`0x4e9bd0`). The script function `Message` (id 45, `0x4ef759`) and the hints go through `0x4e9d50`/`0x4e9d10`, which look up the string table `0xb7d098` first. One caller formats with `vsprintf` (`0x5b3148`) into a stack buffer, so the text is `char`. Used by `EmperorHooks/GameMessage.cpp`.
+
+## Correction: 0x817c0c is a pointer (code review 15.11.2026)
+`[0x817c0c]` is not a byte flag but the battlefield sidebar/HUD object (`new(0x94)` at `0x4b541a`, stored at `0x4b543f`, cleared at `0x4b7282`). Non-null = a battlefield runs. Always read the whole dword (`EmperorHooks/GameState.hpp`); the low byte of a heap pointer can be 0. Object ids: `obj+4` int16 index, `obj+6` int16 generation (checked by FindObject `0x59b350`). A new game creates a new net manager `[0x7cb9d4]` with the frame counter at 0.

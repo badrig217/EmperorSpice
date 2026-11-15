@@ -17,6 +17,7 @@
 #include "GroupMove.hpp"
 #include "GameMessage.hpp"
 #include "Log.hpp"
+#include "GameState.hpp"
 
 // Game.exe 1.09 (see docs/reverse-engineering.md, "Orders, move groups and speed"):
 //   0x4c3900  command executor (cdecl, packet). Every order goes through it, the player's too (via the
@@ -86,6 +87,7 @@ namespace
   struct Member
   {
     uintptr_t unit = 0;
+    uint32_t id = 0;                    // object id (unit+4: index | generation << 16)
     float x = 0, z = 0, dx = 0, dz = 0; // last seen position and destination (from the move step)
     float bestD = 1e30f;                // closest distance to the destination so far
     float vmax = 0;                     // own speed without our cap
@@ -102,18 +104,21 @@ namespace
     std::vector<Member> members;
   };
   std::map<int, Group> gGroups;
-  std::unordered_map<uintptr_t, std::pair<int, size_t>> gMemberOf; // unit -> group id, member index
-  std::unordered_map<uintptr_t, float> gCap;                       // unit -> speed cap
+  // Keyed by object address, but every use checks the object id: a destroyed unit's address can be
+  // reused by a new object (on one machine and not the other), which must never inherit the entry.
+  struct MemberRef { int group; size_t index; uint32_t id; };
+  struct Cap { float speed; uint32_t id; };
+  std::unordered_map<uintptr_t, MemberRef> gMemberOf; // unit -> group id, member index
+  std::unordered_map<uintptr_t, Cap> gCap;            // unit -> speed cap
+  uint8_t* gPlanPacket = nullptr;                    // the packet gPlan belongs to
   int gNextId = 1;
   int gLastUpdateFrame = -1;
 
-  int gameFrame()
-  {
-    uintptr_t net = *reinterpret_cast<uintptr_t volatile*>(0x007cb9d4);
-    return net ? *reinterpret_cast<int volatile*>(net + 0x14) : 0;
-  }
+  using gameState::gameFrame;
+  uintptr_t gGameNet = 0; // net manager of the game our state belongs to (a new one per game)
+  int gLastFrameSeen = -1;
 
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(0x00817c0c) != 0; }
+  using gameState::inMission;
 
   void* setup() { return *reinterpret_cast<void* volatile*>(0x007d75d4); }
   void* world() { return *reinterpret_cast<void* volatile*>(0x00817c00); }
@@ -132,6 +137,11 @@ namespace
 
   template <class T> T at(uintptr_t p, uintptr_t off) { return *reinterpret_cast<T*>(p + off); }
 
+  uint32_t objectId(uintptr_t obj) { return at<uint32_t>(obj, 4); }
+
+  // exact on every CPU (IEEE sqrt), unlike CRT functions such as hypot
+  float dist(float dx, float dz) { return std::sqrt(dx * dx + dz * dz); }
+
   const char* modeText(bool adjust) { return adjust ? "Gruppenbewegung an" : "Gruppenbewegung aus"; }
 
   void dropMember(Member& m, const char* why)
@@ -139,8 +149,11 @@ namespace
     if (m.arrived || m.dropped)
       return;
     m.dropped = true;
-    gCap.erase(m.unit);
-    gMemberOf.erase(m.unit);
+    // only this member's entries: the address may already belong to a unit of a newer group
+    auto c = gCap.find(m.unit);
+    if (c != gCap.end() && c->second.id == m.id) gCap.erase(c);
+    auto r = gMemberOf.find(m.unit);
+    if (r != gMemberOf.end() && r->second.id == m.id) gMemberOf.erase(r);
     (void)why;
   }
 
@@ -209,7 +222,7 @@ namespace
         {
           if (m.arrived || m.dropped || m.vmax <= 0 || now - m.lastProgress > kStuckFrames)
             continue;
-          float d = std::hypot(m.dx - m.x, m.dz - m.z);
+          float d = dist(m.dx - m.x, m.dz - m.z);
           T = std::max(T, d / m.vmax);
         }
         for (Member& m : g.members)
@@ -221,8 +234,8 @@ namespace
             gCap.erase(m.unit);
             continue;
           }
-          float d = std::hypot(m.dx - m.x, m.dz - m.z);
-          gCap[m.unit] = std::clamp(d / T, kSpeedFloor * m.vmax, m.vmax);
+          float d = dist(m.dx - m.x, m.dz - m.z);
+          gCap[m.unit] = { std::clamp(d / T, kSpeedFloor * m.vmax, m.vmax), m.id };
         }
       }
       ++it;
@@ -236,6 +249,28 @@ namespace
     gGroups.clear();
     gMemberOf.clear();
     gCap.clear();
+    gPlan.clear();
+    gPlanActive = false;
+    gLastUpdateFrame = -1;
+    gLastFrameSeen = -1;
+    gGameNet = gameState::netManager();
+  }
+
+  // A new game (new net manager, frame counter restarted) must start with empty state on every machine.
+  void checkNewGame(int frame)
+  {
+    uintptr_t net = gameState::netManager();
+    if (net != gGameNet || frame < gLastFrameSeen)
+    {
+      if (!gGroups.empty() || !gCap.empty())
+        resetAll("neues Spiel");
+      else
+      {
+        gLastUpdateFrame = -1;
+        gGameNet = net;
+      }
+    }
+    gLastFrameSeen = frame;
   }
 
   // Formation targets ("magic box"): keep each unit's offset from the group centre when the target lies
@@ -256,7 +291,7 @@ namespace
       return 0; // short move inside the group: everyone to the point, like the original
     float r = 0;
     for (uintptr_t u : units)
-      r = std::max(r, std::hypot(at<float>(u, 0x14) - cx, at<float>(u, 0x1c) - cz));
+      r = std::max(r, dist(at<float>(u, 0x14) - cx, at<float>(u, 0x1c) - cz));
     float rMax = kTile * std::max(2.0f, 1.25f * std::sqrt(float(n)));
     float scale = r > rMax ? rMax / r : 1.0f;
     void* w = world();
@@ -276,6 +311,7 @@ namespace
   void __cdecl myExec(uint8_t* p)
   {
     bool fromQueue = CALLER_ADDRESS() == kQueueCallReturn;
+    checkNewGame(gameFrame());
     if (!p || !inMission())
     {
       realExec(p);
@@ -294,9 +330,9 @@ namespace
         auto it = u ? gMemberOf.find(u) : gMemberOf.end();
         if (it != gMemberOf.end())
         {
-          auto g = gGroups.find(it->second.first);
-          if (g != gGroups.end() && it->second.second < g->second.members.size())
-            dropMember(g->second.members[it->second.second], "neuer Befehl");
+          auto g = gGroups.find(it->second.group);
+          if (g != gGroups.end() && it->second.index < g->second.members.size() && it->second.id == objectId(u))
+            dropMember(g->second.members[it->second.index], "neuer Befehl");
           else
             gMemberOf.erase(it);
         }
@@ -332,8 +368,10 @@ namespace
     float scale = 0;
     int formed = gOn ? planFormation(units, tx, tz, scale) : 0;
     gPlanActive = formed > 0;
+    gPlanPacket = p;
     realExec(p);
     gPlanActive = false;
+    gPlanPacket = nullptr;
     gPlan.clear();
 
     int now = gameFrame();
@@ -349,11 +387,12 @@ namespace
         gMemberOf.erase(old);
       Member m;
       m.unit = u;
+      m.id = objectId(u);
       m.x = at<float>(u, 0x14), m.z = at<float>(u, 0x1c);
       m.dx = at<float>(u, 0xfc), m.dz = at<float>(u, 0x104);
       m.vmax = realGetSpeed(reinterpret_cast<void*>(u), nullptr);
       m.lastStep = m.lastProgress = m.vmaxFrame = now;
-      gMemberOf[u] = { g.id, g.members.size() };
+      gMemberOf[u] = { g.id, g.members.size(), m.id };
       g.members.push_back(m);
     }
     Log("Gruppe #%d: %d Einheiten, Ziel %d,%d, Spieltick %d, %s%s\n", g.id, (int)units.size(), int(tx / kTile), int(tz / kTile), now,
@@ -365,7 +404,7 @@ namespace
   void __fastcall orderThunk(void* unit, void* /*edx*/, uint8_t* packet)
   {
     Receive_t receive = *reinterpret_cast<Receive_t*>(*reinterpret_cast<uintptr_t*>(unit) + 0x20);
-    if (gPlanActive)
+    if (gPlanActive && packet == gPlanPacket) // not for an order the game executes from inside ReceiveOrder
     {
       auto it = gPlan.find(reinterpret_cast<uintptr_t>(unit));
       if (it != gPlan.end())
@@ -386,9 +425,15 @@ namespace
     float s = realGetSpeed(self, edx);
     if (gOn && !gCap.empty())
     {
-      auto it = gCap.find(reinterpret_cast<uintptr_t>(self));
-      if (it != gCap.end() && it->second < s)
-        return it->second;
+      uintptr_t u = reinterpret_cast<uintptr_t>(self);
+      auto it = gCap.find(u);
+      if (it != gCap.end())
+      {
+        if (it->second.id != objectId(u))
+          gCap.erase(it); // address reused by another object
+        else if (it->second.speed < s)
+          return it->second.speed;
+      }
     }
     return s;
   }
@@ -397,22 +442,33 @@ namespace
   {
     uintptr_t unit = reinterpret_cast<uintptr_t>(self);
     auto it = gMemberOf.find(unit);
+    if (it != gMemberOf.end() && it->second.id != objectId(unit))
+    {
+      gMemberOf.erase(it); // address reused by another object
+      it = gMemberOf.end();
+    }
     if (it == gMemberOf.end())
     {
-      if (!gGroups.empty()) update(gameFrame());
+      if (!gGroups.empty() || !gCap.empty())
+      {
+        int f = gameFrame();
+        checkNewGame(f);
+        update(f);
+      }
       return realMoveStep(self, edx, arg);
     }
     // read before the step (the step could in theory remove the unit)
     float x = at<float>(unit, 0x14), z = at<float>(unit, 0x1c), dx = at<float>(unit, 0xfc), dz = at<float>(unit, 0x104);
     int now = gameFrame();
+    checkNewGame(now);
     update(now); // first, so that a group finished here does not leave m dangling
     it = gMemberOf.find(unit);
     if (it == gMemberOf.end())
       return realMoveStep(self, edx, arg);
     Member* m = nullptr;
-    auto g = gGroups.find(it->second.first);
-    if (g != gGroups.end() && it->second.second < g->second.members.size())
-      m = &g->second.members[it->second.second];
+    auto g = gGroups.find(it->second.group);
+    if (g != gGroups.end() && it->second.index < g->second.members.size())
+      m = &g->second.members[it->second.index];
     if (m && now - m->vmaxFrame >= kSpeedSampleFrames)
     {
       m->vmax = realGetSpeed(self, nullptr);
@@ -422,7 +478,7 @@ namespace
     if (m)
     {
       m->x = x, m->z = z, m->dx = dx, m->dz = dz, m->lastStep = now;
-      float d = std::hypot(dx - x, dz - z);
+      float d = dist(dx - x, dz - z);
       if (d < m->bestD - kTile / 2)
       {
         m->bestD = d;

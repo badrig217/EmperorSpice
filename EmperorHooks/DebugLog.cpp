@@ -36,7 +36,8 @@ namespace
 #ifndef DEBUGLOG_MISSION_FLAG
 #define DEBUGLOG_MISSION_FLAG 0x00817c0c // != 0 while a battlefield runs (see PickingTracer.cpp); overridable for tests
 #endif
-  bool inMission() { return *reinterpret_cast<volatile uint8_t*>(DEBUGLOG_MISSION_FLAG) != 0; }
+  // a pointer (HUD object), not a byte flag: read the whole dword
+  bool inMission() { return *reinterpret_cast<volatile uintptr_t*>(DEBUGLOG_MISSION_FLAG) != 0; }
 
   // "Game.exe+0x1234" / "dgVoodoo...dll+0x..." for an address, empty if it is in no module.
   std::string where(uintptr_t addr)
