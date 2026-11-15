@@ -105,6 +105,7 @@ namespace ui
   struct CheckState
   {
     bool checked = false, hot = false, pressed = false;
+    HFONT font = nullptr; // custom window classes have to keep WM_SETFONT themselves
   };
 
   inline CheckState* checkState(HWND h) { return reinterpret_cast<CheckState*>(GetWindowLongPtrW(h, GWLP_USERDATA)); }
@@ -227,6 +228,12 @@ namespace ui
       delete s;
       SetWindowLongPtrW(h, GWLP_USERDATA, 0);
       break;
+    case WM_SETFONT:
+      if (s) s->font = reinterpret_cast<HFONT>(wp);
+      if (LOWORD(lp)) InvalidateRect(h, nullptr, TRUE);
+      return 0;
+    case WM_GETFONT:
+      return reinterpret_cast<LRESULT>(s ? s->font : nullptr);
     case BM_GETCHECK:
       return s && s->checked ? BST_CHECKED : BST_UNCHECKED;
     case BM_SETCHECK:

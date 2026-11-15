@@ -1199,7 +1199,7 @@ int wmain(int argc, wchar_t* argv[])
   int page = PageStart;
   auto put = [&](HWND h) { gPageControls[page].push_back(h); return h; };
   auto label = [&](const wchar_t* text, int x, int y, int w, int h) {
-    return put(CreateWindowEx(0, WC_STATIC, text, WS_CHILD, S(x), S(y), S(w), S(h), window, nullptr, nullptr, nullptr));
+    return put(CreateWindowEx(0, WC_STATIC, text, WS_CHILD | SS_NOPREFIX, S(x), S(y), S(w), S(h), window, nullptr, nullptr, nullptr));
   };
   auto muted = [&](const wchar_t* text, int x, int y, int w, int h) {
     HWND l = label(text, x, y, w, h);
@@ -1291,7 +1291,7 @@ int wmain(int argc, wchar_t* argv[])
     // Greyed out when the launcher was built without the bundled Real-ESRGAN (developer builds).
     heading(T(L"HD textures (AI)", L"HD-Texturen (KI)"), 422);
     hdTexturesCheckbox = check(T(L"Use HD textures", L"HD-Texturen verwenden"), X, 454, 260);
-    hdTexturesButton = button(T(L"Generate\u2026", L"Erzeugen\u2026"), X2 + 140, 450, 150);
+    hdTexturesButton = button(T(L"Generate\u2026", L"Erzeugen\u2026"), X2 + 110, 450, 150);
     hdTexturesStatus = muted(L"", descX, 482, descW, 20);
     if (!hdTextures::toolAvailable(hdToolDir()))
     {
