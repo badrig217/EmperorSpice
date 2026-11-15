@@ -150,6 +150,13 @@ e) stb_image and stb_image_write by Sean Barrett - https://github.com/nothings/s
    (EmperorLauncher/third_party), compiled into EmperorSpice.exe.
    Public domain (Unlicense) or MIT License, at your choice.
 
+f) miniz by Rich Geldreich and contributors - https://github.com/richgel999/miniz
+   v3.0.2 (EmperorLauncher/third_party), compiled into EmperorSpice.exe; packs the
+   HD texture archives like the game's own (zlib). MIT License:
+   Copyright 2013-2014 RAD Game Tools and Valve Software
+   Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
+   Full text: EmperorLauncher/third_party/miniz-LICENSE.txt
+
 --------------------------------------------------------------------------------
 Large in-game text (folder "fonts")
 

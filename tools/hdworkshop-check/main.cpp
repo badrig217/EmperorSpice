@@ -1,6 +1,6 @@
 // Runs the launcher's HD texture workshop core on Linux with the Linux build of realesrgan-ncnn-vulkan
 // (same model as the Windows build), to check results against the in-game tested prototypes.
-// build: g++ -std=c++20 -O2 -pthread -I../../EmperorLauncher main.cpp -o hdcheck
+// build: gcc -O2 -c ../../EmperorLauncher/third_party/miniz.c && g++ -std=c++20 -O2 -pthread -I../../EmperorLauncher main.cpp miniz.o -o hdcheck
 // usage: ./hdcheck GAME_DIR WORK_DIR REALESRGAN_DIR [texture.tga ...]   (GAME_DIR contains DATA\)
 //        ./hdcheck GAME_DIR on|off   (switch the generated archive on/off)
 #define STB_IMAGE_IMPLEMENTATION

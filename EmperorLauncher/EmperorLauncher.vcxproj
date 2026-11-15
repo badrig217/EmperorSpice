@@ -92,6 +92,12 @@
     <ClCompile Include="md5.c" />
     <ClCompile Include="NetworkTest.cpp" />
     <ClCompile Include="TextureWorkshop.cpp" />
+    <ClCompile Include="third_party\miniz.c">
+      <!-- third-party C code: compiled as is, without the extra SDL checks and warnings of our own code -->
+      <SDLCheck>false</SDLCheck>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
     <ClCompile Include="..\EmperorHooks\ResolveHost.cpp" />
   </ItemGroup>
   <ItemGroup>

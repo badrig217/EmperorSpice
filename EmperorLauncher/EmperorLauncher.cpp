@@ -376,11 +376,11 @@ bool generateHdTextures()
         L"HD-Texturen neu aus deinen Spieldateien erzeugen?\n\nDie bisherigen HD-Texturen werden dabei ersetzt.")
     : T(L"The graphics workshop now upscales about 1,600 textures of your game with AI (Real-ESRGAN): "
         L"build icons, units, buildings and terrain. Effects stay original.\n\n"
-        L"This takes about 5 to 30 minutes, depending on your graphics card, and needs about 400 MB of disk space. "
+        L"This takes about 5 to 30 minutes, depending on your graphics card, and needs about 250 MB of disk space. "
         L"You can cancel at any time.\n\nStart now?",
         L"Die Grafik-Werkstatt rechnet jetzt rund 1.600 Texturen deines Spiels mit KI hoch (Real-ESRGAN): "
         L"Bau-Icons, Einheiten, Geb\u00e4ude und Boden. Effekte bleiben original.\n\n"
-        L"Das dauert je nach Grafikkarte etwa 5 bis 30 Minuten und braucht rund 400 MB Platz. "
+        L"Das dauert je nach Grafikkarte etwa 5 bis 30 Minuten und braucht rund 250 MB Platz. "
         L"Du kannst jederzeit abbrechen.\n\nJetzt starten?");
   if (MessageBoxW(window, question.c_str(), T(L"Graphics workshop", L"Grafik-Werkstatt"), MB_YESNO | MB_ICONQUESTION) != IDYES)
     return false;

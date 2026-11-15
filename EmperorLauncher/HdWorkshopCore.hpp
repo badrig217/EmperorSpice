@@ -24,6 +24,7 @@
 #include "HdImage.hpp"
 #include "third_party/stb_image.h"
 #include "third_party/stb_image_write.h"
+#include "third_party/miniz.h" // zlib streams for the archive entries (better ratio than stb's)
 
 namespace hdCore
 {
@@ -32,7 +33,15 @@ namespace hdCore
 
   inline const char kHdMarker[] = "EmperorSpice\\HDTextures.txt";
   inline const char kModMarker[] = "EmperorSpice\\ModPack.txt";
-  inline const char kRecipeVersion[] = "HD textures v2 (icons 2x, units/buildings 2x + remaster, terrain 4x)";
+  inline const char kRecipeVersion[] = "HD textures v3 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts)";
+
+  // The game hangs at the main menu with one big uncompressed archive (340 MB, tested 15.11.). So the
+  // result is written like the game's own archives: zlib-compressed entries, split into parts that are
+  // no larger than this (the game's own 3DDATA0001.RFD is 68 MB).
+#ifndef HD_MAX_PART_BYTES
+#define HD_MAX_PART_BYTES (40u * 1024 * 1024)
+#endif
+  inline const uint32_t kMaxPartBytes = HD_MAX_PART_BYTES; // overridable for tests
 
   inline std::string lowerA(std::string s)
   {
@@ -113,12 +122,18 @@ namespace hdCore
     return out;
   }
 
-  // Number of our HD archive in DATA, or 0.
-  inline int activeHdArchive(const fs::path& data)
+  // Numbers of our HD archives in DATA (in order), empty if switched off.
+  inline std::vector<int> activeHdArchives(const fs::path& data)
   {
+    std::vector<int> out;
     for (int n : archiveNumbers(data, "3DDATA"))
-      if (hasEntry(readIndex(archivePath(data, "3DDATA", n, ".RFH"), {}), kHdMarker)) return n;
-    return 0;
+      if (hasEntry(readIndex(archivePath(data, "3DDATA", n, ".RFH"), {}), kHdMarker)) out.push_back(n);
+    return out;
+  }
+  inline int activeHdArchive(const fs::path& data) // first one, or 0 (tests)
+  {
+    std::vector<int> a = activeHdArchives(data);
+    return a.empty() ? 0 : a.front();
   }
 
   // Renumber <prefix> archives so that no gap is left (keeps order).
@@ -126,12 +141,8 @@ namespace hdCore
   {
     std::error_code ec;
     std::vector<int> present;
-    int gaps = 0;
-    for (int n = 1; n < 100; n++)
-    {
-      if (fs::exists(archivePath(data, prefix, n, ".RFH"), ec)) present.push_back(n), gaps = 0;
-      else if (++gaps > 3) break; // tolerate the single gap we just made
-    }
+    for (int n = 1; n < 100; n++) // our parts may leave several gaps
+      if (fs::exists(archivePath(data, prefix, n, ".RFH"), ec)) present.push_back(n);
     int target = 1;
     for (int n : present)
     {
@@ -149,37 +160,76 @@ namespace hdCore
 
   inline fs::path dataDir(const fs::path& gameDir) { return gameDir / "DATA"; }
   inline fs::path cacheDir(const fs::path& gameDir) { return gameDir / "hdtextures"; }
-  inline fs::path cacheRfh(const fs::path& gameDir) { return cacheDir(gameDir) / "3DDATA_HD.RFH"; }
-  inline fs::path cacheRfd(const fs::path& gameDir) { return cacheDir(gameDir) / "3DDATA_HD.RFD"; }
+  // Generated parts while switched off: <game>\hdtextures\3DDATA_HD_01.RFH/.RFD, _02 ...
+  inline fs::path cachePart(const fs::path& gameDir, int part, const char* ext)
+  {
+    char name[32];
+    snprintf(name, sizeof(name), "3DDATA_HD_%02d%s", part, ext);
+    return cacheDir(gameDir) / name;
+  }
+  inline fs::path versionFile(const fs::path& gameDir) { return cacheDir(gameDir) / "version.txt"; }
 
-  inline bool generated(const fs::path& gameDir)
+  inline int cachedParts(const fs::path& gameDir)
   {
     std::error_code ec;
-    return fs::exists(cacheRfh(gameDir), ec) || activeHdArchive(dataDir(gameDir)) != 0;
+    int n = 0;
+    while (n < 99 && fs::exists(cachePart(gameDir, n + 1, ".RFH"), ec)) n++;
+    return n;
+  }
+
+  // Removes results of older workshop versions (one big archive - hangs the game) and old parts.
+  inline void removeCache(const fs::path& gameDir)
+  {
+    std::error_code ec;
+    for (const char* f : { "3DDATA_HD.RFH", "3DDATA_HD.RFD", "3DDATA_HD.RFD.tmp" }) fs::remove(cacheDir(gameDir) / f, ec);
+    for (int n = 1; n < 100; n++)
+      for (const char* ext : { ".RFH", ".RFD", ".RFD.tmp" }) fs::remove(cachePart(gameDir, n, ext), ec);
+    fs::remove(versionFile(gameDir), ec);
+  }
+
+  inline bool currentVersion(const fs::path& gameDir)
+  {
+    std::vector<char> v;
+    return readFile(versionFile(gameDir), v) && std::string(v.begin(), v.end()) == kRecipeVersion;
+  }
+
+  // Generated with the current recipe (switched on or off).
+  inline bool generated(const fs::path& gameDir)
+  {
+    return currentVersion(gameDir) && (cachedParts(gameDir) > 0 || !activeHdArchives(dataDir(gameDir)).empty());
   }
 
   inline std::string apply(const fs::path& gameDir, bool enabled)
   {
     std::error_code ec;
     const fs::path data = dataDir(gameDir);
-    const int active = activeHdArchive(data);
+    const std::vector<int> active = activeHdArchives(data);
     if (enabled)
     {
-      if (active || !fs::exists(cacheRfh(gameDir), ec)) return "";
+      const int parts = cachedParts(gameDir);
+      if (!active.empty() || parts == 0 || !currentVersion(gameDir)) return "";
       std::vector<int> nums = archiveNumbers(data, "3DDATA");
-      int n = nums.empty() ? 1 : nums.back() + 1;
-      if (n >= 100) return "no free 3DDATA archive number";
-      fs::rename(cacheRfd(gameDir), archivePath(data, "3DDATA", n, ".RFD"), ec);   // data first,
-      if (!ec) fs::rename(cacheRfh(gameDir), archivePath(data, "3DDATA", n, ".RFH"), ec); // index last
-      return ec ? "move HD archive into DATA: " + ec.message() : "";
+      const int first = nums.empty() ? 1 : nums.back() + 1;
+      if (first + parts > 100) return "no free 3DDATA archive number";
+      for (int i = 0; i < parts; i++)
+      {
+        fs::rename(cachePart(gameDir, i + 1, ".RFD"), archivePath(data, "3DDATA", first + i, ".RFD"), ec);   // data first,
+        if (!ec) fs::rename(cachePart(gameDir, i + 1, ".RFH"), archivePath(data, "3DDATA", first + i, ".RFH"), ec); // index last
+        if (ec) return "move HD archive into DATA: " + ec.message();
+      }
+      return "";
     }
-    if (!active) return "";
+    if (active.empty()) return "";
     fs::create_directories(cacheDir(gameDir), ec);
-    fs::remove(cacheRfh(gameDir), ec);
-    fs::remove(cacheRfd(gameDir), ec);
-    fs::rename(archivePath(data, "3DDATA", active, ".RFH"), cacheRfh(gameDir), ec); // index first: game ignores it then
-    if (!ec) fs::rename(archivePath(data, "3DDATA", active, ".RFD"), cacheRfd(gameDir), ec);
-    if (ec) return "move HD archive out of DATA: " + ec.message();
+    for (int n = 1; n < 100; n++)
+      for (const char* ext : { ".RFH", ".RFD" }) fs::remove(cachePart(gameDir, n, ext), ec);
+    for (size_t i = 0; i < active.size(); i++)
+    {
+      const int part = int(i) + 1;
+      fs::rename(archivePath(data, "3DDATA", active[i], ".RFH"), cachePart(gameDir, part, ".RFH"), ec); // index first: game ignores it then
+      if (!ec) fs::rename(archivePath(data, "3DDATA", active[i], ".RFD"), cachePart(gameDir, part, ".RFD"), ec);
+      if (ec) return "move HD archive out of DATA: " + ec.message();
+    }
     return compact(data, "3DDATA");
   }
 
@@ -351,6 +401,21 @@ namespace hdCore
   }
 
   // ---------------------------------------------------------------- generate
+  // Entry format of the game's own archives (flag 2): u32 raw size, then a zlib stream.
+  inline std::vector<char> compressEntry(const std::vector<char>& raw)
+  {
+    mz_ulong zlen = mz_compressBound(mz_ulong(raw.size()));
+    std::vector<char> out(4 + size_t(zlen));
+    uint32_t n = uint32_t(raw.size());
+    memcpy(out.data(), &n, 4);
+    if (mz_compress2(reinterpret_cast<unsigned char*>(out.data() + 4), &zlen, reinterpret_cast<const unsigned char*>(raw.data()),
+                     mz_ulong(raw.size()), 9) != MZ_OK)
+      return {};
+    out.resize(4 + size_t(zlen));
+    return out;
+  }
+
+
   struct Progress
   {
     std::function<void(int stage, int done, int total)> report;
@@ -402,35 +467,63 @@ namespace hdCore
     // an old result must not be read as game data, and gets replaced anyway
     std::string err = apply(gameDir, false);
     if (!err.empty()) return err;
-    fs::remove(cacheRfh(gameDir), ec);
-    fs::remove(cacheRfd(gameDir), ec);
     fs::create_directories(cacheDir(gameDir), ec);
+    removeCache(gameDir);
 
     std::vector<Item> items = collect(data);
     if (only)
       items.erase(std::remove_if(items.begin(), items.end(), [&](const Item& i) { return !only->count(i.base); }), items.end());
     if (items.empty()) return "no textures found in the 3DDATA archives";
 
-    const fs::path tmpRfd = cacheDir(gameDir) / "3DDATA_HD.RFD.tmp";
-    std::ofstream rfd(tmpRfd, std::ios::binary | std::ios::trunc);
-    if (!rfd) return "cannot write " + tmpRfd.string();
+    // Archive parts, written while the textures come in. Each part carries the marker entry.
+    const uint32_t now = uint32_t(time(nullptr));
+    const std::string marker = std::string("Emperor Spice: ") + kRecipeVersion +
+                               ". Made by the launcher from your own game files - do not share.\r\n";
+    std::mutex writeLock;
+    int part = 0;
+    std::ofstream rfd;
     std::vector<char> rfh;
     uint32_t offset = 0;
-    const uint32_t now = uint32_t(time(nullptr));
-    std::mutex writeLock;
+    std::string writeError;
     auto put32 = [&](uint32_t x) { rfh.insert(rfh.end(), reinterpret_cast<char*>(&x), reinterpret_cast<char*>(&x) + 4); };
-    auto addEntry = [&](const std::string& name, const std::vector<char>& content) {
-      put32(uint32_t(name.size() + 1)); put32(now); put32(0); put32(uint32_t(content.size())); put32(uint32_t(content.size())); put32(offset);
+    // stored = what is written to the RFD (for zlib entries: u32 raw size + zlib stream, flag 2)
+    auto addRaw = [&](const std::string& name, uint32_t flags, const std::vector<char>& stored, uint32_t rawSize) {
+      put32(uint32_t(name.size() + 1)); put32(now); put32(flags); put32(uint32_t(stored.size())); put32(rawSize); put32(offset);
       rfh.insert(rfh.end(), name.begin(), name.end()); rfh.push_back('\0');
-      rfd.write(content.data(), content.size());
-      offset += uint32_t(content.size());
+      rfd.write(stored.data(), stored.size());
+      offset += uint32_t(stored.size());
+    };
+    auto closePart = [&]() -> bool {
+      if (part == 0) return true;
+      addRaw(kHdMarker, 0, std::vector<char>(marker.begin(), marker.end()), uint32_t(marker.size()));
+      rfd.close();
+      if (!rfd) return false;
+      std::ofstream f(cachePart(gameDir, part, ".RFH"), std::ios::binary | std::ios::trunc);
+      f.write(rfh.data(), rfh.size());
+      if (!f) return false;
+      f.close();
+      fs::rename(cachePart(gameDir, part, ".RFD.tmp"), cachePart(gameDir, part, ".RFD"), ec);
+      return !ec;
+    };
+    auto openPart = [&]() -> bool {
+      part++;
+      rfh.clear();
+      offset = 0;
+      rfd.open(cachePart(gameDir, part, ".RFD.tmp"), std::ios::binary | std::ios::trunc);
+      return bool(rfd);
+    };
+    // called under writeLock
+    auto addEntry = [&](const std::string& name, const std::vector<char>& stored, uint32_t rawSize) {
+      if (part == 0 || offset + stored.size() > kMaxPartBytes)
+        if (!closePart() || !openPart()) { if (writeError.empty()) writeError = "cannot write the HD archive"; return; }
+      addRaw(name, 2, stored, rawSize);
     };
 
     const fs::path inDir = workDir / "in", outDir = workDir / "out";
     int done = 0, written = 0;
     const int total = int(items.size());
     auto cleanup = [&] { fs::remove_all(workDir, ec); };
-    auto failed = [&](const std::string& msg) { rfd.close(); fs::remove(tmpRfd, ec); cleanup(); return msg; };
+    auto failed = [&](const std::string& msg) { rfd.close(); removeCache(gameDir); cleanup(); return msg; };
 
     for (size_t b0 = 0; b0 < items.size(); b0 += size_t(batchSize))
     {
@@ -479,8 +572,10 @@ namespace hdCore
             return;
           }
           std::vector<char> tga = hdImage::writeTga(finish(job, up4));
+          std::vector<char> stored = compressEntry(tga); // in this thread, before taking the lock
           std::lock_guard<std::mutex> g(writeLock);
-          addEntry(job.item.entry.name, tga);
+          if (stored.empty()) { if (writeError.empty()) writeError = "compression failed"; return; }
+          addEntry(job.item.entry.name, stored, uint32_t(tga.size()));
           written++;
         }
       };
@@ -489,24 +584,18 @@ namespace hdCore
       for (auto& t : pool) t.join();
       if (progress.cancelled()) return failed("cancelled");
       if (!threadError.empty()) return failed(threadError);
-      if (!rfd) return failed("cannot write " + tmpRfd.string());
+      if (!writeError.empty() || (part > 0 && !rfd)) return failed(writeError.empty() ? "cannot write the HD archive" : writeError);
       done = int(b1);
       progress.report(1, done, total);
     }
 
     progress.report(2, total, total);
-    std::string marker = std::string("Emperor Spice: ") + kRecipeVersion +
-                         ". Made by the launcher from your own game files - do not share.\r\n";
-    addEntry(kHdMarker, std::vector<char>(marker.begin(), marker.end()));
-    rfd.close();
-    if (!rfd) return failed("cannot write " + tmpRfd.string());
+    if (!closePart()) return failed("cannot write the HD archive");
     {
-      std::ofstream f(cacheRfh(gameDir), std::ios::binary | std::ios::trunc);
-      f.write(rfh.data(), rfh.size());
-      if (!f) return failed("cannot write " + cacheRfh(gameDir).string());
+      std::ofstream f(versionFile(gameDir), std::ios::binary | std::ios::trunc);
+      f << kRecipeVersion;
+      if (!f) return failed("cannot write " + versionFile(gameDir).string());
     }
-    fs::rename(tmpRfd, cacheRfd(gameDir), ec);
-    if (ec) { fs::remove(cacheRfh(gameDir), ec); return failed("cannot rename " + tmpRfd.string()); }
     cleanup();
     if (written == 0) return "no texture could be converted";
     return "";
