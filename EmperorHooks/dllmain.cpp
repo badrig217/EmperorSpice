@@ -16,6 +16,7 @@
 #include "MoneyCheat.hpp"
 #include "PerfLog.hpp"
 #include "TextureTrace.hpp"
+#include "StuckLog.hpp"
 #include "DebugLog.hpp"
 #include "CameraZoom.hpp"
 #include "ReShadeAddon.hpp"
@@ -143,6 +144,7 @@ void runHooks()
   initMoneyCheat(settings.moneyCheat);
   initPerfLog(settings.debugLog);      // stutters
   initTextureTrace(settings.debugLog); // texture loads until the first mission
+  initStuckLog(settings.debugLog);     // jam reporter: units that cannot get through
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).
