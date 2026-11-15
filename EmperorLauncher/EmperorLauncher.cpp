@@ -340,8 +340,9 @@ HWND modsFolderButton = nullptr;
 HWND hdTexturesCheckbox = nullptr;
 HWND hdTexturesButton = nullptr;
 
-// Shown in the launcher and written to the debug logs. Bump together with package.ps1 -Version.
-const wchar_t kLauncherVersion[] = L"v1.1";
+// Shown in the launcher and written to the debug logs. Bump together with package.ps1 $Version (the CI
+// compares the "Emperor Spice vX.Y" text in this file with it).
+const wchar_t kLauncherVersion[] = L"Emperor Spice v1.1";
 
 // Game folder (contains DATA); set in wmain. The HD texture workshop works there.
 std::filesystem::path gGameDir;
@@ -924,7 +925,7 @@ int wmain(int argc, wchar_t* argv[])
     installDirUnicode = getFolderThisExeIsIn() + L"\\data";
   gGameDir = installDirUnicode;
   launcherLog::open(gGameDir, settings.debugLog);
-  launcherLog::write("Emperor Spice launcher %s", launcherLog::utf8(kLauncherVersion).c_str());
+  launcherLog::write("%s launcher", launcherLog::utf8(kLauncherVersion).c_str());
   launcherLog::write("Launcher folder: %s", launcherLog::utf8(getFolderThisExeIsIn()).c_str());
   launcherLog::write("Game folder: %s", launcherLog::utf8(installDirUnicode).c_str());
   // the game's debug log reads it from here for its system profile
@@ -1171,7 +1172,7 @@ int wmain(int argc, wchar_t* argv[])
 
   // --- Footer: version + credits (links open in the browser) ---
   int footY = playY + S(58);
-  HWND versionLabel = CreateWindowEx(0, WC_STATIC, (std::wstring(L"Emperor Spice ") + kLauncherVersion).c_str(), WS_CHILD | WS_VISIBLE, colL, footY, S(200), S(20), window, nullptr, nullptr, nullptr);
+  HWND versionLabel = CreateWindowEx(0, WC_STATIC, kLauncherVersion, WS_CHILD | WS_VISIBLE, colL, footY, S(200), S(20), window, nullptr, nullptr, nullptr);
   githubLink = CreateWindowEx(0, WC_STATIC, T(L"Based on Emperor Reborn by azmawee", L"Basiert auf Emperor Reborn von azmawee"), WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(22), S(330), S(20), window, nullptr, nullptr, nullptr);
   facebookLink = CreateWindowEx(0, WC_STATIC, L"github.com/badrig217/EmperorSpice", WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(42), S(330), S(20), window, nullptr, nullptr, nullptr);
   int clientH = footY + S(70);
