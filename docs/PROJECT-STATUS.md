@@ -67,6 +67,8 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 
 **Erstes Match mit HD-Texturen (15.11.):** läuft. Ruckel-Protokoll: nach dem Laden 30 s mit einigen Rucklern (bis 617 ms, Nachladen), danach durchgehend ~60 fps, einzelne Bilder 50–80 ms, ein Hänger 186 ms kurz nach einer Marke (viele Einheiten losgeschickt).
 
+**Originalfarben (15.11., Rezept v6):** Hinweis des Projektinhabers: hochgerechnete Texturen wirken kräftiger als das Original. Gemessen: der Staub des Remasters färbt neutrales Metall bräunlich (Bauhof-Platte), die KI vertieft dunkle Bereiche. Neuer Schritt `restoreColour` (HdImage.hpp): die geglättete Farbe (Cb/Cr) des Ergebnisses wird durch die geglättete Farbe des Originals ersetzt (Radius ca. 1 Original-Pixel), dazu die geglättete Helligkeit (Radius ca. 2 Original-Pixel) – Icons und Boden voll, Modell-Texturen zur Hälfte (Relief bleibt). Schärfe und Details bleiben. Danach liegen Farbkraft und Helligkeit der Testtexturen auf dem Original (Abweichung meist unter 1 %).
+
 **Erster Praxiswert:** Erzeugen dauerte beim Projektinhaber (RX 7800 XT) etwa **5 Minuten**.
 
 **Noch offen:** Spieltest im Spiel (Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).

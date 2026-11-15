@@ -391,6 +391,51 @@ namespace hdImage
     }
   }
 
+  // Upscaling and the remaster's dust shift colours (grey metal turns brownish, some areas get more
+  // saturated). Keep the new detail and relief, but give every area its original colour back: the
+  // smooth (blurred) colour of the result is replaced by the smooth colour of the original, in the
+  // chroma channels only (YCbCr), so brightness detail and shading stay as they are.
+  // lumaStrength: how much of the original's smooth brightness to bring back as well (0 = none). The
+  // upscaler deepens dark areas a little; icons and terrain get it fully, the remastered textures half
+  // (their relief should stay visible).
+  inline void restoreColour(Img& out, const Img& originalRgb, float lumaStrength = 0.0f)
+  {
+    if (out.w == 0 || originalRgb.w == 0) return;
+    Img ref = resizeLanczos(originalRgb, out.w, out.h);
+    const float sigma = 0.75f * float(out.w) / float(originalRgb.w); // about one original pixel
+    Plane cbO(out.w, out.h), crO(out.w, out.h), cbR(out.w, out.h), crR(out.w, out.h), yO(out.w, out.h), yR(out.w, out.h);
+    for (size_t i = 0; i < cbO.d.size(); i++)
+    {
+      const float* o = &out.d[i * out.c];
+      const float* r = &ref.d[i * 3];
+      cbO.d[i] = -0.168736f * o[0] - 0.331264f * o[1] + 0.5f * o[2];
+      crO.d[i] = 0.5f * o[0] - 0.418688f * o[1] - 0.081312f * o[2];
+      cbR.d[i] = -0.168736f * r[0] - 0.331264f * r[1] + 0.5f * r[2];
+      crR.d[i] = 0.5f * r[0] - 0.418688f * r[1] - 0.081312f * r[2];
+      yO.d[i] = 0.299f * o[0] + 0.587f * o[1] + 0.114f * o[2];
+      yR.d[i] = 0.299f * r[0] + 0.587f * r[1] + 0.114f * r[2];
+    }
+    Plane byO, byR;
+    if (lumaStrength > 0)
+    {
+      byO = gaussian(yO, 2.0f * sigma, true); // a bit coarser: fine shading and edges stay
+      byR = gaussian(yR, 2.0f * sigma, true);
+    }
+    Plane bcbO = gaussian(cbO, sigma, true), bcrO = gaussian(crO, sigma, true);
+    Plane bcbR = gaussian(cbR, sigma, true), bcrR = gaussian(crR, sigma, true);
+    for (size_t i = 0; i < cbO.d.size(); i++)
+    {
+      float* o = &out.d[i * out.c];
+      float y = yO.d[i];
+      if (lumaStrength > 0) y += lumaStrength * (byR.d[i] - byO.d[i]);
+      const float cb = cbO.d[i] + (bcbR.d[i] - bcbO.d[i]);
+      const float cr = crO.d[i] + (bcrR.d[i] - bcrO.d[i]);
+      o[0] = std::min(255.0f, std::max(0.0f, y + 1.402f * cr));
+      o[1] = std::min(255.0f, std::max(0.0f, y - 0.344136f * cb - 0.714136f * cr));
+      o[2] = std::min(255.0f, std::max(0.0f, y + 1.772f * cb));
+    }
+  }
+
   // ---------------------------------------------------------------- TGA
   // Reads uncompressed true-colour TGA (type 2; 16/24/32 bit). 16-bit is RGB555 (the game's
   // files never use the attribute bit). Returns false for other formats (texture is then skipped).
