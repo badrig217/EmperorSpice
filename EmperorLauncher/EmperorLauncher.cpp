@@ -24,6 +24,8 @@
 #include "ModPack.hpp"
 #include "TextureWorkshopUi.hpp"
 #include "LauncherLog.hpp"
+#include "LauncherUi.hpp"
+#include <vector>
 #include "Shortcut.hpp"
 #include "IsoReader.hpp"
 #include <commdlg.h>
@@ -255,7 +257,6 @@ inline int S(int v) { return MulDiv(v, int(gDpi), 96); } // scale 96-DPI layout 
 
 HFONT gUiFont = nullptr;
 HFONT gLinkFont = nullptr;
-int gHeaderBandHeight = 0;
 HWND gHeaderPic = nullptr;
 HBITMAP gHeaderBmp = nullptr;
 
@@ -274,9 +275,6 @@ void drawHeader(const DRAWITEMSTRUCT* item)
   SelectObject(mem, old);
   DeleteDC(mem);
 }
-HBRUSH gBackgroundBrush = CreateSolidBrush(RGB(250, 249, 247));
-const COLORREF gTextColor = RGB(32, 32, 32);
-const COLORREF gLinkColor = RGB(180, 90, 20);
 
 HFONT makeFont(int pointSize, int weight, bool underline = false)
 {
@@ -290,19 +288,28 @@ BOOL CALLBACK setFontOnChild(HWND child, LPARAM font)
   return TRUE;
 }
 
-// Light window body with a dark band behind the header banner (same gradient as the banner itself).
+// Layout of the window (96-DPI pixels, scaled with S()): header band on top, navigation on the left,
+// the chosen page on the right, and a bottom bar with the status line and "Play".
+const int kClientW = 920, kClientH = 600;
+const int kHeaderH = 84, kSidebarW = 200, kBottomBarY = 532;
+const int kContentX = 224, kContentW = 680;
+
+// Window background: header band (same gradient as the banner), sidebar, page, line above the bottom bar.
 void paintBackground(HWND hwnd, HDC dc)
 {
+  const ui::Palette& p = ui::pal();
   RECT rc;
   GetClientRect(hwnd, &rc);
-  FillRect(dc, &rc, gBackgroundBrush);
-  for (int y = 0; y < gHeaderBandHeight; y++)
+  FillRect(dc, &rc, ui::brushes().window);
+  RECT side = { 0, S(kHeaderH), S(kSidebarW), rc.bottom };
+  FillRect(dc, &side, ui::brushes().sidebar);
+  RECT sep = { S(kSidebarW) + S(24), S(kBottomBarY), rc.right - S(16), S(kBottomBarY) + 1 };
+  ui::fillRect(dc, sep, p.border);
+  for (int y = 0; y < S(kHeaderH); y++)
   {
-    float t = float(y) / float(std::max(1, gHeaderBandHeight - 1));
-    HBRUSH b = CreateSolidBrush(RGB(int(30 - 18 * t), int(20 - 11 * t), int(16 - 8 * t)));
+    float t = float(y) / float(std::max(1, S(kHeaderH) - 1));
     RECT line = { rc.left, y, rc.right, y + 1 };
-    FillRect(dc, &line, b);
-    DeleteObject(b);
+    ui::fillRect(dc, line, RGB(int(30 - 18 * t), int(20 - 11 * t), int(16 - 8 * t)));
   }
 }
 
@@ -339,6 +346,46 @@ HWND modsCheckbox = nullptr;
 HWND modsFolderButton = nullptr;
 HWND hdTexturesCheckbox = nullptr;
 HWND hdTexturesButton = nullptr;
+HWND hdTexturesStatus = nullptr;
+HWND themeButton = nullptr;
+HWND statusLabel = nullptr;
+HWND versionLabel = nullptr;
+HFONT gHeadingFont = nullptr, gTitleFont = nullptr, gPlayFont = nullptr, gBoldFont = nullptr;
+
+// Pages of the window: navigation button + the controls shown on that page.
+enum PageId { PageStart, PageGraphics, PageMultiplayer, PageMods, PageCompat, PageLog, PageCount };
+HWND gNavButtons[PageCount] = {};
+std::vector<HWND> gPageControls[PageCount];
+int gCurrentPage = PageStart;
+std::vector<HWND> gMutedLabels;   // explanations under options (grey)
+std::vector<HWND> gSidebarLabels; // version + links at the bottom of the navigation
+std::vector<HWND> gThemedNative;  // combo boxes and edit fields (Windows' dark theme)
+
+bool contains(const std::vector<HWND>& v, HWND h) { return std::find(v.begin(), v.end(), h) != v.end(); }
+
+void showPage(int page)
+{
+  gCurrentPage = page;
+  for (int i = 0; i < PageCount; i++)
+    for (HWND c : gPageControls[i])
+      ShowWindow(c, i == page ? SW_SHOW : SW_HIDE);
+  for (HWND n : gNavButtons)
+    InvalidateRect(n, nullptr, FALSE);
+}
+
+extern Settings settings;
+
+void applyTheme()
+{
+  ui::gDark = settings.launcherTheme == 2 || (settings.launcherTheme == 0 && ui::windowsUsesDarkApps());
+  ui::rebuildBrushes();
+  ui::themeTitleBar(window);
+  for (HWND c : gThemedNative)
+    ui::themeNative(c);
+  if (themeButton)
+    SetWindowTextW(themeButton, ui::gDark ? T(L"Light mode", L"Helles Design") : T(L"Dark mode", L"Dunkles Design"));
+  RedrawWindow(window, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_FRAME);
+}
 
 // Shown in the launcher and written to the debug logs. Bump together with package.ps1 $Version (the CI
 // compares the "Emperor Spice vX.Y" text in this file with it).
@@ -364,6 +411,44 @@ void refreshDerivedState()
 
 
 std::filesystem::path hdToolDir() { return std::filesystem::path(getFolderThisExeIsIn()) / L"hdtools"; }
+
+// HD texture state under the switch, e.g. "Made on 15.11.2026 - 205 MB".
+void refreshHdTexturesStatus()
+{
+  if (!hdTexturesStatus)
+    return;
+  unsigned long long bytes = 0;
+  std::wstring date;
+  std::wstring text;
+  if (!hdTextures::toolAvailable(hdToolDir()))
+    text = T(L"Not included in this build.", L"In dieser Version nicht enthalten.");
+  else if (hdTextures::info(gGameDir, bytes, date))
+    text = std::wstring(T(L"Made on ", L"Erzeugt am ")) + date + L" \u00b7 " + std::to_wstring(bytes >> 20) + L" MB";
+  else
+    text = T(L"Not generated yet - \"Generate\" takes about 5 to 30 minutes.",
+             L"Noch nicht erzeugt - \u201eErzeugen\u201c dauert etwa 5 bis 30 Minuten.");
+  SetWindowTextW(hdTexturesStatus, text.c_str());
+}
+
+// Bottom bar: the most important settings at a glance.
+void refreshStatus()
+{
+  if (!statusLabel || !IsWindow(statusLabel))
+    return;
+  std::wstring res;
+  for (const Resolution& r : resolutions)
+    if (r.width == settings.screenWidth && r.height == settings.screenHeight && r.upscale == settings.upscaleToDesktop)
+      res = T(r.label, r.labelDe);
+  const wchar_t* style = settings.graphicsPack ? (settings.graphicsStyle == 1 ? L"HD" : L"Modern") : L"Original";
+  std::wstring text = res + L"  \u00b7  " + T(L"Look: ", L"Grafikstil: ") + style + L"  \u00b7  " + T(L"HD textures ", L"HD-Texturen ") +
+                      (settings.hdTextures ? T(L"on", L"an") : T(L"off", L"aus"));
+  if (settings.mods)
+    text += std::wstring(L"  \u00b7  ") + T(L"Mods on", L"Mods an");
+  if (!settings.hostGame)
+    text += std::wstring(L"  \u00b7  ") + T(L"Multiplayer: client", L"Mehrspieler: Client");
+  SetWindowTextW(statusLabel, text.c_str());
+  refreshHdTexturesStatus();
+}
 
 void refreshHdTexturesButton()
 {
@@ -698,7 +783,10 @@ LRESULT onLinkClicked(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam, con
   return CallWindowProc(defWndProc, hwnd, message, wParam, lParam);
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+LRESULT handleCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
   if (hwnd == window && message == WM_ERASEBKGND)
   {
     paintBackground(hwnd, reinterpret_cast<HDC>(wParam));
@@ -708,13 +796,40 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
   {
     HDC dc = reinterpret_cast<HDC>(wParam);
     HWND control = reinterpret_cast<HWND>(lParam);
+    const ui::Palette& p = ui::pal();
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, (control == githubLink || control == facebookLink) ? gLinkColor : gTextColor);
-    return reinterpret_cast<LRESULT>(gBackgroundBrush);
+    COLORREF text = p.text;
+    if (control == githubLink || control == facebookLink)
+      text = p.link;
+    else if (contains(gMutedLabels, control) || !IsWindowEnabled(control))
+      text = p.muted;
+    SetTextColor(dc, text);
+    return reinterpret_cast<LRESULT>(contains(gSidebarLabels, control) ? ui::brushes().sidebar : ui::brushes().window);
   }
-  if (hwnd == window && message == WM_DRAWITEM && reinterpret_cast<const DRAWITEMSTRUCT*>(lParam)->hwndItem == gHeaderPic)
+  if (hwnd == window && (message == WM_CTLCOLOREDIT || message == WM_CTLCOLORLISTBOX))
   {
-    drawHeader(reinterpret_cast<const DRAWITEMSTRUCT*>(lParam));
+    HDC dc = reinterpret_cast<HDC>(wParam);
+    SetTextColor(dc, ui::pal().text);
+    SetBkColor(dc, ui::pal().control);
+    return reinterpret_cast<LRESULT>(ui::brushes().control);
+  }
+  if (hwnd == window && message == WM_DRAWITEM)
+  {
+    const DRAWITEMSTRUCT* item = reinterpret_cast<const DRAWITEMSTRUCT*>(lParam);
+    if (item->hwndItem == gHeaderPic)
+    {
+      drawHeader(item);
+      return TRUE;
+    }
+    ui::ButtonKind kind = ui::ButtonKind::Normal;
+    if (item->hwndItem == playButton)
+      kind = ui::ButtonKind::Primary;
+    else if (item->hwndItem == themeButton)
+      kind = ui::ButtonKind::Toggle;
+    for (int i = 0; i < PageCount; i++)
+      if (item->hwndItem == gNavButtons[i])
+        kind = i == gCurrentPage ? ui::ButtonKind::NavSelected : ui::ButtonKind::Nav;
+    ui::drawButton(item, kind, ui::hotButton() == item->hwndItem);
     return TRUE;
   }
   if (hwnd == window && message == WM_SETCURSOR)
@@ -726,7 +841,38 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
       return TRUE;
     }
   }
+  if (hwnd == window && message == WM_SETTINGCHANGE && settings.launcherTheme == 0)
+    applyTheme(); // Windows switched between light and dark
 
+  if (message == WM_COMMAND && HIWORD(wParam) == BN_CLICKED)
+  {
+    HWND from = reinterpret_cast<HWND>(lParam);
+    for (int i = 0; i < PageCount; i++)
+      if (from == gNavButtons[i])
+      {
+        showPage(i);
+        return 0;
+      }
+    if (from == themeButton)
+    {
+      settings.launcherTheme = ui::gDark ? 1 : 2;
+      settings.writeSettings();
+      applyTheme();
+      return 0;
+    }
+  }
+
+  if (message == WM_COMMAND && hwnd == window)
+  {
+    LRESULT result = handleCommand(hwnd, message, wParam, lParam);
+    refreshStatus(); // keep the bottom bar in step with every change
+    return result;
+  }
+  return handleCommand(hwnd, message, wParam, lParam);
+}
+
+LRESULT handleCommand(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
   if (message == WM_CLOSE && hwnd == window) return OnWindowClose(hwnd, message, wParam, lParam);
 
   if (message == WM_COMMAND && HIWORD(wParam) == STN_CLICKED && reinterpret_cast<HWND>(lParam) == githubLink) return onLinkClicked(hwnd, message, wParam, lParam, "https://github.com/azmawee/EmperorReborn");
@@ -1019,13 +1165,8 @@ int wmain(int argc, wchar_t* argv[])
   // main window
   // Layout is written in 96-DPI pixels and scaled with S() for the system DPI, so the launcher stays
   // crisp (not bitmap-stretched) on displays with Windows scaling above 100%.
-  const int clientW = S(560);
-  const int y0 = S(158);          // below the header band
-  const int colL = S(16), colLW = S(330);
-  const int colR = S(356), colRW = S(188);
-  const int rowH = S(26);
-
-  RECT wr = { 0, 0, clientW, S(600) };
+  *ui::dpiPtr() = gDpi;
+  ui::registerControls();
   window = CreateWindowEx(0, WC_DIALOG, L"Emperor Spice", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                           0, 0, 100, 100, nullptr, nullptr, nullptr, nullptr);
 
@@ -1037,66 +1178,121 @@ int wmain(int argc, wchar_t* argv[])
     SendMessageW(window, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(appIcon));
   }
 
-  // Branding header banner (icon/launcher-header.bmp, generated by icon/generate_spice.py).
-  // The bitmap is stored at 2x size and drawn scaled down with HALFTONE filtering (see WM_DRAWITEM),
-  // so the banner stays sharp at any Windows display scaling.
-  gHeaderPic = CreateWindowEx(0, WC_STATIC, nullptr, WS_CHILD | WS_VISIBLE | SS_OWNERDRAW,
-                              (clientW - S(514)) / 2, S(14), S(514), S(118), window, nullptr, nullptr, nullptr);
+  gUiFont = makeFont(9, FW_NORMAL);
+  gLinkFont = makeFont(9, FW_NORMAL, true);
+  gBoldFont = makeFont(9, FW_SEMIBOLD);
+  gHeadingFont = makeFont(11, FW_SEMIBOLD);
+  gTitleFont = makeFont(16, FW_SEMIBOLD);
+  gPlayFont = makeFont(12, FW_SEMIBOLD);
+
+  // Branding header banner (icon/launcher-header.bmp, generated by icon/generate_spice.py), drawn scaled
+  // with HALFTONE filtering (see WM_DRAWITEM) so it stays sharp at any Windows display scaling.
+  gHeaderPic = CreateWindowEx(0, WC_STATIC, nullptr, WS_CHILD | WS_VISIBLE | SS_OWNERDRAW, S(16), S(8), S(296), S(68), window, nullptr, nullptr, nullptr);
   gHeaderBmp = reinterpret_cast<HBITMAP>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDB_HEADER), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION));
 
-  auto groupBox = [&](const wchar_t* text, int x, int y, int w, int h)
-  {
-    return CreateWindowEx(0, WC_BUTTON, text, WS_CHILD | WS_VISIBLE | BS_GROUPBOX, x, y, w, h, window, nullptr, nullptr, nullptr);
+  // light / dark switch, remembered in the settings
+  themeButton = CreateWindowEx(0, WC_BUTTON, L"", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
+                               S(kClientW - 16 - 140), S(26), S(140), S(32), window, nullptr, nullptr, nullptr);
+  ui::trackHover(themeButton);
+
+  // --- helpers to build the pages -----------------------------------------------------------------
+  int page = PageStart;
+  auto put = [&](HWND h) { gPageControls[page].push_back(h); return h; };
+  auto label = [&](const wchar_t* text, int x, int y, int w, int h) {
+    return put(CreateWindowEx(0, WC_STATIC, text, WS_CHILD, S(x), S(y), S(w), S(h), window, nullptr, nullptr, nullptr));
   };
+  auto muted = [&](const wchar_t* text, int x, int y, int w, int h) {
+    HWND l = label(text, x, y, w, h);
+    gMutedLabels.push_back(l);
+    return l;
+  };
+  auto title = [&](const wchar_t* text) {
+    HWND l = label(text, kContentX, 100, kContentW, 34);
+    SendMessageW(l, WM_SETFONT, reinterpret_cast<WPARAM>(gTitleFont), FALSE);
+    return l;
+  };
+  auto heading = [&](const wchar_t* text, int y) {
+    HWND l = label(text, kContentX, y, kContentW, 24);
+    SendMessageW(l, WM_SETFONT, reinterpret_cast<WPARAM>(gHeadingFont), FALSE);
+    return l;
+  };
+  auto check = [&](const wchar_t* text, int x, int y, int w, DWORD extra = 0) {
+    return put(CreateWindowEx(0, ui::kCheckClass, text, WS_CHILD | WS_TABSTOP | extra, S(x), S(y), S(w), S(22), window, nullptr, nullptr, nullptr));
+  };
+  auto button = [&](const wchar_t* text, int x, int y, int w, int h = 30) {
+    HWND b = put(CreateWindowEx(0, WC_BUTTON, text, WS_CHILD | WS_TABSTOP | BS_OWNERDRAW, S(x), S(y), S(w), S(h), window, nullptr, nullptr, nullptr));
+    ui::trackHover(b);
+    return b;
+  };
+  auto combo = [&](int x, int y, int w, int listH) {
+    HWND c = put(CreateWindowEx(0, WC_COMBOBOX, nullptr, WS_CHILD | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, S(x), S(y), S(w), S(listH), window, nullptr, nullptr, nullptr));
+    gThemedNative.push_back(c);
+    return c;
+  };
+  const int X = kContentX, X2 = kContentX + 160; // label column / control column
+  const int descX = kContentX + 24, descW = kContentW - 24;
 
-  // --- Graphics (left) ---
+  // --- Start -------------------------------------------------------------------------------------
+  page = PageStart;
   {
-    const int h = S(258);
-    groupBox(T(L"Graphics", L"Grafik"), colL, y0, colLW, h);
-    int x = colL + S(14);
-    int y = y0 + S(24);
+    title(T(L"Welcome to Emperor Spice", L"Willkommen bei Emperor Spice"));
+    muted(T(L"Emperor: Battle for Dune on modern PCs - widescreen, modern graphics and many fixes. "
+            L"Pick your settings on the left, then press Play.",
+            L"Emperor: Schlacht um Dune auf modernen PCs - Breitbild, moderne Grafik und viele Verbesserungen. "
+            L"Links w\u00e4hlst du die Einstellungen, dann auf \u201eSpielen\u201c."),
+          X, 140, kContentW, 40);
+    heading(T(L"Language", L"Sprache"), 196);
+    label(L"Sprache / Language", X, 230, 150, 22);
+    languageCombo = combo(X2, 226, 220, 120);
+    SendMessageW(languageCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"English"));
+    SendMessageW(languageCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Deutsch"));
+    SendMessageW(languageCombo, CB_SETCURSEL, gLang == Lang::DE ? 1 : 0, 0);
+    heading(T(L"Shortcut", L"Verkn\u00fcpfung"), 280);
+    shortcutButton = button(T(L"Create desktop shortcut", L"Desktop-Verkn\u00fcpfung erstellen"), X, 312, 260);
+    heading(T(L"Problems?", L"Probleme?"), 366);
+    muted(T(L"See \"Fixes\" for mouse problems. If the game does not start or crashes, tick \"Debug log\" under \"Log\", "
+            L"try again and attach data\\emperor.txt to an issue on GitHub.",
+            L"Bei Problemen mit der Maus hilft \u201eProbleml\u00f6sung\u201c. Startet das Spiel nicht oder st\u00fcrzt ab: unter \u201eProtokoll\u201c "
+            L"das Debug-Log einschalten, nochmal versuchen und data\\emperor.txt bei GitHub anh\u00e4ngen."),
+          X, 396, kContentW, 56);
+  }
 
-    fullscreenCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Fullscreen", L"Vollbild"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, S(290), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH + S(4);
-
-    CreateWindowEx(0, WC_STATIC, T(L"Resolution", L"Aufl\u00f6sung"), WS_CHILD | WS_VISIBLE, x, y + S(4), S(90), S(22), window, nullptr, nullptr, nullptr);
+  // --- Graphics ----------------------------------------------------------------------------------
+  page = PageGraphics;
+  {
+    title(T(L"Graphics", L"Grafik"));
+    heading(T(L"Picture", L"Bild"), 144);
+    fullscreenCheckbox = check(T(L"Fullscreen", L"Vollbild"), X, 174, 300);
+    label(T(L"Resolution", L"Aufl\u00f6sung"), X, 208, 150, 22);
     // The height here also controls how tall the drop-down list is, so make it big enough for all entries.
-    resolutionCombo = CreateWindowEx(0, WC_COMBOBOX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST | WS_VSCROLL, x + S(96), y, S(206), S(320), window, nullptr, nullptr, nullptr);
+    resolutionCombo = combo(X2, 204, 260, 340);
     for (const Resolution& res : resolutions)
       SendMessageW(resolutionCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(res.label, res.labelDe)));
-    SendMessageW(resolutionCombo, CB_SETDROPPEDWIDTH, S(240), 0);
-    y += rowH + S(10);
-
-    cutscene43Checkbox = CreateWindowEx(0, WC_BUTTON, T(L"Cutscene movies / FMV in 4:3 (black bars)", L"Zwischensequenzen in 4:3 (schwarze R\u00e4nder)"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, S(305), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-
-    smoothScrollCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Smooth map scrolling", L"Fl\u00fcssiges Karten-Scrollen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, S(305), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-
-    // Graphics pack (dgVoodoo + ReShade): off, "Modern" or "HD".
-    // Greyed out when the launcher was built without the bundled graphics folder (developer builds).
-    CreateWindowEx(0, WC_STATIC, T(L"Graphics look", L"Grafikstil"), WS_CHILD | WS_VISIBLE, x, y + S(4), S(90), S(22), window, nullptr, nullptr, nullptr);
-    graphicsCombo = CreateWindowEx(0, WC_COMBOBOX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, x + S(96), y, S(206), S(120), window, nullptr, nullptr, nullptr);
+    // Graphics pack (dgVoodoo + ReShade): off, "Modern" or "HD". Greyed out without the graphics folder.
+    label(T(L"Graphics look", L"Grafikstil"), X, 242, 150, 22);
+    graphicsCombo = combo(X2, 238, 260, 120);
     SendMessageW(graphicsCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"Original (no graphics pack)", L"Original (ohne Grafik-Paket)")));
     SendMessageW(graphicsCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"Modern (sharper, smooth edges)", L"Modern (sch\u00e4rfer, glatte Kanten)")));
     SendMessageW(graphicsCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"HD (light and shadows)", L"HD (Licht und Schatten)")));
-    SendMessageW(graphicsCombo, CB_SETDROPPEDWIDTH, S(300), 0);
     if (!graphicsPack::available(std::filesystem::path(getFolderThisExeIsIn()) / L"graphics"))
       EnableWindow(graphicsCombo, FALSE);
-    y += rowH + S(10);
-
-    CreateWindowEx(0, WC_STATIC, T(L"Camera zoom", L"Kamera-Zoom"), WS_CHILD | WS_VISIBLE, x, y + S(4), S(90), S(22), window, nullptr, nullptr, nullptr);
-    cameraZoomCombo = CreateWindowEx(0, WC_COMBOBOX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, x + S(96), y, S(206), S(120), window, nullptr, nullptr, nullptr);
+    label(T(L"Camera zoom", L"Kamera-Zoom"), X, 276, 150, 22);
+    cameraZoomCombo = combo(X2, 272, 260, 120);
     SendMessageW(cameraZoomCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"Original", L"Original")));
     SendMessageW(cameraZoomCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"A little farther (1.25x)", L"Etwas weiter (1,25x)")));
     SendMessageW(cameraZoomCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"Farther (1.5x, recommended)", L"Weiter (1,5x, empfohlen)")));
     SendMessageW(cameraZoomCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(T(L"Far (1.75x)", L"Sehr weit (1,75x)")));
-    y += rowH + S(10);
+
+    heading(T(L"Motion", L"Bewegung"), 320);
+    smoothScrollCheckbox = check(T(L"Smooth map scrolling", L"Fl\u00fcssiges Karten-Scrollen"), X, 350, 420);
+    cutscene43Checkbox = check(T(L"Cutscene movies in 4:3 (black bars)", L"Zwischensequenzen in 4:3 (schwarze R\u00e4nder)"), X, 378, 420);
 
     // Grafik-Werkstatt: AI-upscaled textures, made on this PC from the player's own game files.
     // Greyed out when the launcher was built without the bundled Real-ESRGAN (developer builds).
-    hdTexturesCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"HD textures (AI)", L"HD-Texturen (KI)"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y + S(2), S(170), S(22), window, nullptr, nullptr, nullptr);
-    hdTexturesButton = CreateWindowEx(0, WC_BUTTON, T(L"Generate\u2026", L"Erzeugen\u2026"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, x + S(186), y, S(116), S(26), window, nullptr, nullptr, nullptr);
+    heading(T(L"HD textures (AI)", L"HD-Texturen (KI)"), 422);
+    hdTexturesCheckbox = check(T(L"Use HD textures", L"HD-Texturen verwenden"), X, 454, 260);
+    hdTexturesButton = button(T(L"Generate\u2026", L"Erzeugen\u2026"), X2 + 140, 450, 150);
+    hdTexturesStatus = muted(L"", descX, 482, descW, 20);
     if (!hdTextures::toolAvailable(hdToolDir()))
     {
       EnableWindow(hdTexturesCheckbox, FALSE);
@@ -1104,106 +1300,127 @@ int wmain(int argc, wchar_t* argv[])
     }
   }
 
-  // --- Language + Advanced (right) ---
+  // --- Multiplayer -------------------------------------------------------------------------------
+  page = PageMultiplayer;
   {
-    groupBox(L"Sprache / Language", colR, y0, colRW, S(60));
-    languageCombo = CreateWindowEx(0, WC_COMBOBOX, nullptr, WS_CHILD | WS_VISIBLE | WS_TABSTOP | CBS_DROPDOWNLIST, colR + S(14), y0 + S(24), colRW - S(28), S(120), window, nullptr, nullptr, nullptr);
-    SendMessageW(languageCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"English"));
-    SendMessageW(languageCombo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Deutsch"));
-    SendMessageW(languageCombo, CB_SETCURSEL, gLang == Lang::DE ? 1 : 0, 0);
-
-    int gy = y0 + S(70);
-    groupBox(T(L"Troubleshooting", L"Fehlersuche"), colR, gy, colRW, S(188));
-    int x = colR + S(14);
-    int y = gy + S(24);
-    pauseOnStartupCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Pause on startup", L"Beim Start pausieren"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-    forceCursorVisibleCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Force cursor visible", L"Mauszeiger immer zeigen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-    disableCursorCaptureCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Disable cursor capture", L"Maus nicht einfangen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
-    y += rowH;
-    // Debug log: data\emperor.txt + launcher.txt with everything we record (EmperorHooks/DebugLog.cpp,
-    // PerfLog.cpp, TextureTrace.cpp, LauncherLog.hpp). Off = nothing is recorded, old files are deleted.
-    debugLogCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Debug log", L"Debug-Log"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, x, y, colRW - S(24), S(22), window, nullptr, nullptr, nullptr);
-    CreateWindowEx(0, WC_STATIC, T(L"Ctrl+Shift+L = marker", L"Strg+Umschalt+L = Marke"), WS_CHILD | WS_VISIBLE, x + S(18), y + S(22), colRW - S(40), S(20), window, nullptr, nullptr, nullptr);
+    title(T(L"Multiplayer", L"Mehrspieler"));
+    hostGameRadio = check(T(L"Host game / single player", L"Spiel hosten / Einzelspieler"), X, 148, 400, ui::kRadio);
+    portsLabel = muted(T(L"The host must open port 4005 (UDP and TCP) in the router.",
+                         L"Wer hostet, muss im Router Port 4005 (UDP und TCP) freigeben."), descX, 172, descW, 20);
+    connectToServerRadio = check(T(L"Connect to a server", L"Mit Server verbinden"), X, 206, 400, ui::kRadio);
+    serverAddressLabel = label(T(L"Server IP or hostname (dynamic DNS works)", L"Server-IP oder Hostname (auch dynamisches DNS)"), descX, 236, descW, 20);
+    serverAddressTextbox = put(CreateWindowEx(WS_EX_CLIENTEDGE, WC_EDIT, L"host IP or hostname", WS_CHILD | WS_TABSTOP | ES_AUTOHSCROLL,
+                                              S(descX), S(260), S(300), S(26), window, nullptr, nullptr, nullptr));
+    gThemedNative.push_back(serverAddressTextbox);
+    testNetworkButton = button(T(L"Test connection", L"Verbindung testen"), descX + 312, 258, 180);
   }
 
-  // --- Multiplayer (full width) ---
-  int mpY = y0 + S(270);
+  // --- Mods & extras -----------------------------------------------------------------------------
+  page = PageMods;
   {
-    const int h = S(132);
-    groupBox(L"Multiplayer", colL, mpY, clientW - S(32), h);
-    int x = colL + S(14);
-    int y = mpY + S(24);
-
-    hostGameRadio = CreateWindowEx(0, WC_BUTTON, T(L"Host game / singleplayer", L"Spiel hosten / Einzelspieler"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON | WS_GROUP, x, y, S(240), S(22), window, nullptr, nullptr, nullptr);
-    portsLabel = CreateWindowEx(0, WC_STATIC, T(L"Host must open port 4005 UDP and TCP", L"Host muss Port 4005 (UDP + TCP) freigeben"), WS_CHILD | WS_VISIBLE, x + S(20), y + S(24), S(230), S(36), window, nullptr, nullptr, nullptr);
-    connectToServerRadio = CreateWindowEx(0, WC_BUTTON, T(L"Connect to server", L"Mit Server verbinden"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTORADIOBUTTON, x, y + S(70), S(240), S(22), window, nullptr, nullptr, nullptr);
-
-    int rx = colL + S(270);
-    serverAddressLabel = CreateWindowEx(0, WC_STATIC, T(L"Server IP or hostname (dynamic DNS supported)", L"Server-IP oder Hostname (auch dynamisches DNS)"), WS_CHILD | WS_VISIBLE, rx, y, S(244), S(36), window, nullptr, nullptr, nullptr);
-    serverAddressTextbox = CreateWindowEx(WS_EX_CLIENTEDGE, WC_EDIT, L"host IP or hostname", WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, rx, y + S(38), S(244), S(24), window, nullptr, nullptr, nullptr);
-    testNetworkButton = CreateWindowEx(0, WC_BUTTON, T(L"Test connection", L"Verbindung testen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, rx, y + S(68), S(150), S(28), window, nullptr, nullptr, nullptr);
-  }
-
-  // --- Extras (full width) ---
-  int exY = mpY + S(144);
-  {
-    groupBox(L"Extras", colL, exY, clientW - S(32), S(152));
-    moneyCheatCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Money cheat in single player:  Ctrl+Shift+M = +25,000 credits",
-                                                        L"Geld-Cheat im Einzelspieler:  Strg+Umschalt+M = +25.000 Credits"),
-                                        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, colL + S(14), exY + S(24), S(490), S(22), window, nullptr, nullptr, nullptr);
+    title(T(L"Mods & extras", L"Mods & Extras"));
+    heading(L"Mods", 144);
+    modsCheckbox = check(T(L"Load mods from the \"mods\" folder", L"Mods aus dem Ordner \u201emods\u201c laden"), X, 174, 420);
+    muted(T(L"In multiplayer all players need the same mods.", L"Im Mehrspieler brauchen alle dieselben Mods."), descX, 198, descW, 20);
+    modsFolderButton = button(T(L"Open mods folder", L"Mod-Ordner \u00f6ffnen"), descX, 224, 200);
+    heading(L"Extras", 278);
     // Greyed out when the launcher was built without the bundled fonts folder (developer builds).
-    largeFontCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Large in-game messages and hints (2x)",
-                                                       L"Gro\u00dfe Meldungen und Hinweise im Spiel (2x)"),
-                                       WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, colL + S(14), exY + S(50), S(490), S(22), window, nullptr, nullptr, nullptr);
+    largeFontCheckbox = check(T(L"Large in-game messages and hints (2x)", L"Gro\u00dfe Meldungen und Hinweise im Spiel (2x)"), X, 308, 460);
     if (!fontPack::available(std::filesystem::path(getFolderThisExeIsIn()) / L"fonts"))
       EnableWindow(largeFontCheckbox, FALSE);
-    modsCheckbox = CreateWindowEx(0, WC_BUTTON, T(L"Load mods from the \"mods\" folder (all players need the same mods)",
-                                                  L"Mods aus dem Ordner \u201Emods\u201C laden (im Multiplayer alle dieselben)"),
-                                  WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, colL + S(14), exY + S(76), S(520), S(22), window, nullptr, nullptr, nullptr);
-    shortcutButton = CreateWindowEx(0, WC_BUTTON, T(L"Create desktop shortcut", L"Desktop-Verkn\u00fcpfung erstellen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, colL + S(14), exY + S(110), S(230), S(28), window, nullptr, nullptr, nullptr);
-    modsFolderButton = CreateWindowEx(0, WC_BUTTON, T(L"Open mods folder", L"Mod-Ordner \u00f6ffnen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP, colL + S(254), exY + S(110), S(200), S(28), window, nullptr, nullptr, nullptr);
+    moneyCheatCheckbox = check(T(L"Money cheat in single player", L"Geld-Cheat im Einzelspieler"), X, 340, 460);
+    muted(T(L"Ctrl+Shift+M gives +25,000 credits. Never active in multiplayer.",
+            L"Strg+Umschalt+M gibt +25.000 Credits. Im Mehrspieler nie aktiv."), descX, 364, descW, 20);
   }
 
-  // --- Play button ---
-  int playY = exY + S(166);
-  playButton = CreateWindowEx(0, WC_BUTTON, T(L"Play", L"Spielen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, (clientW - S(200)) / 2, playY, S(200), S(42), window, nullptr, nullptr, nullptr);
+  // --- Fixes (workarounds for driver and mouse problems) ----------------------------------------
+  page = PageCompat;
+  {
+    title(T(L"Fixes", L"Probleml\u00f6sung"));
+    muted(T(L"Only needed if something does not work - leave them off otherwise.",
+            L"Nur n\u00f6tig, wenn etwas nicht klappt - sonst ausgeschaltet lassen."), X, 140, kContentW, 20);
+    forceCursorVisibleCheckbox = check(T(L"Always show the mouse pointer", L"Mauszeiger immer zeigen"), X, 178, 420);
+    muted(T(L"Use this if there is no mouse pointer in the game.",
+            L"Hilft, wenn im Spiel kein Mauszeiger zu sehen ist."), descX, 202, descW, 20);
+    disableCursorCaptureCheckbox = check(T(L"Don't keep the mouse in the game window", L"Maus nicht im Spielfenster festhalten"), X, 238, 420);
+    muted(T(L"For window mode or a second screen. Scrolling at the screen edge then works less well.",
+            L"F\u00fcr den Fenstermodus oder einen zweiten Bildschirm. Das Scrollen am Bildschirmrand klappt dann schlechter."),
+          descX, 262, descW, 20);
+  }
 
-  // --- Footer: version + credits (links open in the browser) ---
-  int footY = playY + S(58);
-  HWND versionLabel = CreateWindowEx(0, WC_STATIC, kLauncherVersion, WS_CHILD | WS_VISIBLE, colL, footY, S(200), S(20), window, nullptr, nullptr, nullptr);
-  githubLink = CreateWindowEx(0, WC_STATIC, T(L"Based on Emperor Reborn by azmawee", L"Basiert auf Emperor Reborn von azmawee"), WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(22), S(330), S(20), window, nullptr, nullptr, nullptr);
-  facebookLink = CreateWindowEx(0, WC_STATIC, L"github.com/badrig217/EmperorSpice", WS_CHILD | WS_VISIBLE | SS_NOTIFY, colL, footY + S(42), S(330), S(20), window, nullptr, nullptr, nullptr);
-  int clientH = footY + S(70);
+  // --- Log -----------------------------------------------------------------------------------------
+  page = PageLog;
+  {
+    title(T(L"Log", L"Protokoll"));
+    // Debug log: data\emperor.txt + launcher.txt with everything we record (EmperorHooks/DebugLog.cpp,
+    // PerfLog.cpp, TextureTrace.cpp, LauncherLog.hpp). Off = nothing is recorded, old files are deleted.
+    debugLogCheckbox = check(T(L"Debug log", L"Debug-Log"), X, 148, 420);
+    muted(T(L"Records system info, crashes, hangs, stutters and memory in data\\emperor.txt and launcher.txt. "
+            L"Off = nothing is recorded.",
+            L"Zeichnet Systeminfos, Abst\u00fcrze, H\u00e4nger, Ruckler und Speicher in data\\emperor.txt und launcher.txt auf. "
+            L"Aus = es wird nichts aufgezeichnet."),
+          descX, 172, descW, 40);
+    muted(T(L"Ctrl+Shift+L in the game sets a marker in the log.", L"Strg+Umschalt+L im Spiel setzt eine Marke ins Log."), descX, 214, descW, 20);
+    pauseOnStartupCheckbox = check(T(L"Pause on startup (for developers)", L"Beim Start pausieren (f\u00fcr Entwickler)"), X, 258, 420);
+    muted(T(L"Stops before the game starts, so a debugger can be attached.",
+            L"H\u00e4lt vor dem Spielstart an, damit man einen Debugger anh\u00e4ngen kann."), descX, 282, descW, 20);
+  }
 
-  // Fonts: Segoe UI everywhere, semibold for the play button and the version line.
-  gUiFont = makeFont(9, FW_NORMAL);
-  gLinkFont = makeFont(9, FW_NORMAL, true);
-  HFONT boldFont = makeFont(9, FW_SEMIBOLD);
-  HFONT playFont = makeFont(12, FW_SEMIBOLD);
-  EnumChildWindows(window, setFontOnChild, reinterpret_cast<LPARAM>(gUiFont));
-  SendMessageW(playButton, WM_SETFONT, reinterpret_cast<WPARAM>(playFont), TRUE);
-  SendMessageW(versionLabel, WM_SETFONT, reinterpret_cast<WPARAM>(boldFont), TRUE);
-  SendMessageW(githubLink, WM_SETFONT, reinterpret_cast<WPARAM>(gLinkFont), TRUE);
-  SendMessageW(facebookLink, WM_SETFONT, reinterpret_cast<WPARAM>(gLinkFont), TRUE);
+  // --- navigation, bottom bar, credits ----------------------------------------------------------
+  const wchar_t* navText[PageCount] = { T(L"Start", L"Start"), T(L"Graphics", L"Grafik"), T(L"Multiplayer", L"Mehrspieler"),
+                                        T(L"Mods & extras", L"Mods & Extras"), T(L"Fixes", L"Probleml\u00f6sung"), T(L"Log", L"Protokoll") };
+  for (int i = 0; i < PageCount; i++)
+  {
+    gNavButtons[i] = CreateWindowEx(0, WC_BUTTON, navText[i], WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
+                                    S(12), S(kHeaderH + 16 + i * 44), S(kSidebarW - 24), S(38), window, nullptr, nullptr, nullptr);
+    ui::trackHover(gNavButtons[i]);
+  }
+  versionLabel = CreateWindowEx(0, WC_STATIC, kLauncherVersion, WS_CHILD | WS_VISIBLE, S(20), S(kClientH - 74), S(kSidebarW - 28), S(20), window, nullptr, nullptr, nullptr);
+  githubLink = CreateWindowEx(0, WC_STATIC, T(L"Based on Emperor Reborn", L"Basiert auf Emperor Reborn"), WS_CHILD | WS_VISIBLE | SS_NOTIFY, S(20), S(kClientH - 52), S(kSidebarW - 28), S(20), window, nullptr, nullptr, nullptr);
+  facebookLink = CreateWindowEx(0, WC_STATIC, T(L"Emperor Spice on GitHub", L"Emperor Spice auf GitHub"), WS_CHILD | WS_VISIBLE | SS_NOTIFY, S(20), S(kClientH - 32), S(kSidebarW - 28), S(20), window, nullptr, nullptr, nullptr);
+  gSidebarLabels = { versionLabel, githubLink, facebookLink };
+
+  statusLabel = CreateWindowEx(0, WC_STATIC, L"", WS_CHILD | WS_VISIBLE | SS_ENDELLIPSIS, S(kContentX), S(kBottomBarY + 26), S(kContentW - 200), S(20), window, nullptr, nullptr, nullptr);
+  gMutedLabels.push_back(statusLabel);
+  playButton = CreateWindowEx(0, WC_BUTTON, T(L"Play", L"Spielen"), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_OWNERDRAW,
+                              S(kClientW - 16 - 180), S(kBottomBarY + 14), S(180), S(42), window, nullptr, nullptr, nullptr);
+  ui::trackHover(playButton);
+
+  // Fonts: Segoe UI everywhere (titles and headings were set above, keep them).
+  for (HWND c = GetWindow(window, GW_CHILD); c; c = GetWindow(c, GW_HWNDNEXT))
+  {
+    HFONT f = reinterpret_cast<HFONT>(SendMessageW(c, WM_GETFONT, 0, 0));
+    if (f != gTitleFont && f != gHeadingFont)
+      SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(gUiFont), FALSE);
+  }
+  SendMessageW(playButton, WM_SETFONT, reinterpret_cast<WPARAM>(gPlayFont), FALSE);
+  SendMessageW(versionLabel, WM_SETFONT, reinterpret_cast<WPARAM>(gBoldFont), FALSE);
+  SendMessageW(githubLink, WM_SETFONT, reinterpret_cast<WPARAM>(gLinkFont), FALSE);
+  SendMessageW(facebookLink, WM_SETFONT, reinterpret_cast<WPARAM>(gLinkFont), FALSE);
+  for (HWND n : gNavButtons)
+    SendMessageW(n, WM_SETFONT, reinterpret_cast<WPARAM>(gBoldFont), FALSE);
 
   // Size the window so its client area fits the layout, centred on the screen.
-  gHeaderBandHeight = S(146);
-  wr = { 0, 0, clientW, clientH };
+  RECT wr = { 0, 0, S(kClientW), S(kClientH) };
   AdjustWindowRectEx(&wr, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE, 0);
   int winW = wr.right - wr.left, winH = wr.bottom - wr.top;
   SetWindowPos(window, nullptr, (GetSystemMetrics(SM_CXSCREEN) - winW) / 2, (GetSystemMetrics(SM_CYSCREEN) - winH) / 2, winW, winH, SWP_NOZORDER);
 
+  showPage(PageStart);
+
   defWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(WndProc)));
 
   loadAndApplySettings();
+  applyTheme();
+  refreshStatus();
 
   ShowWindow(window, SW_SHOW);
 
   MSG message = { 0 };
   while (GetMessage(&message, nullptr, 0, 0))
   {
+    if (window && IsDialogMessage(window, &message)) // Tab / arrow keys between the controls
+      continue;
     TranslateMessage(&message);
     DispatchMessage(&message);
   }

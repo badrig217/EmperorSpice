@@ -70,6 +70,9 @@ public:
   // Off = nothing is written. On by default for now while we test; decide before the release.
   bool debugLog = true;
 
+  // Launcher look: 0 = like Windows (light or dark app mode), 1 = light, 2 = dark. Launcher only.
+  int launcherTheme = 0;
+
   // Large in-game text: the game's two text fonts at 2x size (Emperor Spice HD fonts). Off by default.
   bool largeFont = false;
 
@@ -168,6 +171,10 @@ public:
     if (moneyCheatTemp)
       moneyCheat = *moneyCheatTemp == "1";
 
+    std::optional<std::string> themeTemp = regReadString(key, "LauncherTheme");
+    if (themeTemp)
+      launcherTheme = atoi(themeTemp->c_str());
+
     std::optional<std::string> debugLogTemp = regReadString(key, "DebugLog");
     if (!debugLogTemp)
       debugLogTemp = regReadString(key, "LogFile"); // earlier test builds: "Log file" box
@@ -217,6 +224,7 @@ public:
     regWriteString(key, "Mods", mods ? "1" : "0");
     regWriteString(key, "HDTextures", hdTextures ? "1" : "0");
     regWriteString(key, "DebugLog", debugLog ? "1" : "0");
+    regWriteString(key, "LauncherTheme", std::to_string(launcherTheme));
 
     RegCloseKey(key);
   }

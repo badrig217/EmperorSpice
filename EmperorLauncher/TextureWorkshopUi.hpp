@@ -26,11 +26,11 @@ namespace hdTexturesUi
   inline std::wstring statusText(State& s)
   {
     const int stage = s.progress.stage, done = s.progress.done, total = s.progress.total;
-    if (s.progress.cancel) return T(L"Cancelling…", L"Wird abgebrochen…");
+    if (s.progress.cancel) return T(L"Cancelling\u2026", L"Wird abgebrochen\u2026");
     if (stage == hdTextures::StagePacking || stage == hdTextures::StageDone)
-      return T(L"Packing the textures as a mod…", L"Texturen werden als Mod eingebunden…");
+      return T(L"Packing the textures as a mod\u2026", L"Texturen werden als Mod eingebunden\u2026");
     if (stage != hdTextures::StageUpscaling || total == 0)
-      return T(L"Reading the game files…", L"Spieldateien werden gelesen…");
+      return T(L"Reading the game files\u2026", L"Spieldateien werden gelesen\u2026");
 
     wchar_t line[256];
     swprintf(line, 256, T(L"AI upscaling: %d of %d textures", L"KI-Hochrechnung: %d von %d Texturen"), done, total);
@@ -105,7 +105,7 @@ namespace hdTexturesUi
     state.window = CreateWindowExW(0, wc.lpszClassName, T(L"Graphics workshop: HD textures", L"Grafik-Werkstatt: HD-Texturen"), style,
                                    (ownerRect.left + ownerRect.right - w) / 2, (ownerRect.top + ownerRect.bottom - h) / 2, w, h,
                                    owner, nullptr, wc.hInstance, nullptr);
-    state.label = CreateWindowExW(0, WC_STATIC, T(L"Reading the game files…", L"Spieldateien werden gelesen…"), WS_CHILD | WS_VISIBLE,
+    state.label = CreateWindowExW(0, WC_STATIC, T(L"Reading the game files\u2026", L"Spieldateien werden gelesen\u2026"), WS_CHILD | WS_VISIBLE,
                                   scale(16), scale(14), scale(388), scale(40), state.window, nullptr, nullptr, nullptr);
     state.bar = CreateWindowExW(0, PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE | PBS_SMOOTH, scale(16), scale(60), scale(388), scale(20),
                                 state.window, nullptr, nullptr, nullptr);
