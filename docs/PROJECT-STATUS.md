@@ -108,9 +108,13 @@ Quelle ist bisher nur eine KI-Zusammenfassung aus einer Websuche (verweist u. a.
 
 **Auswahl-Limit 64 (15.11.):** Beim Rahmen-Aufziehen sind höchstens 64 Einheiten auswählbar. Das ist in Game.exe die Größe fester Listen, keine einzelne Zahl (Details in `reverse-engineering.md`). Anheben wäre ein großer, riskanter Umbau (auch Multiplayer/Spielstände). Das eigentliche Problem des Projektinhabers: nicht ausgewählte eigene Einheiten machen keinen Platz, und die ausgewählten verkeilen sich. Ansatz für später: Ausweich-Verhalten untersuchen (warum stehende eigene Einheiten nicht ausweichen).
 
+**rules.txt geprüft (15.11.):** `MODEL0001` ist die Original-rules.txt, `MODEL0002` der Patch 1.09 (ändert nur drei Werte). Es gibt **keine Wegfindungs-Werte** (Wartezeit, Ausweichen, Neuberechnung). Bewegung betreffen nur `Speed`, `TurnRate`, `Size` (1–3), `CanMoveAnyDirection`, `Crushable`/`Crushes`. Ansatz 2 per Mod-Datei entfällt damit, die Wegfindung muss in Game.exe angegangen werden.
+
+**Stau-Melder (15.11., gehört zum Debug-Log):** `EmperorHooks/StuckLog.cpp` hängt sich an den Bewegungsschritt der Einheiten (`0x562f00`, nur mitlesen). Kommt eine Einheit 8 s lang keine Viertel-Kachel voran, obwohl sie laufen will, schreibt er in `emperor.txt` eine Zeile `Stau-Melder: FEST …` mit Einheitentyp, Seite (S0, S1 …, die Spielerseite steht einmal im Log), Feld, Ziel, nächstem Wegfeld und allem, was auf diesem und dem eigenen Feld steht, dazu Zustand, Wegposition und Rückgabewert. Kommt sie wieder los: `Stau-Melder: frei … nach N s`. Jede Minute eine Zusammenfassung, höchstens 40 Einzelmeldungen pro Minute. Noch nicht im Spiel getestet.
+
 Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 1. **Ziellinien-Ruckler:** am ehesten lösbar. In Game.exe die Zeichenroutine der Ziellinien suchen und prüfen, ob sie pro Einheit und Bild zu viel tut (Hook wie bei CameraZoom). Notfalls im Launcher eine Option „Ziellinien aus“.
-2. **Sammler-Stau:** Prüfen, ob es Werte in `rules.txt` gibt (Kollision, Wartezeit, Andockverhalten). Das wäre ohne Code-Patch als Mod-Datei machbar.
+2. **Sammler-Stau:** ~~Werte in `rules.txt`~~ gibt es nicht (siehe oben). Mit dem Stau-Melder Fälle sammeln.
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
