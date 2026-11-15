@@ -33,7 +33,7 @@ namespace hdCore
 
   inline const char kHdMarker[] = "EmperorSpice\\HDTextures.txt";
   inline const char kModMarker[] = "EmperorSpice\\ModPack.txt";
-  inline const char kRecipeVersion[] = "HD textures v4 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts; fonts kept)";
+  inline const char kRecipeVersion[] = "HD textures v5 (icons 2x, units/buildings 2x + remaster, terrain 4x; zlib, parts; fonts and UI markers kept)";
 
   // The game hangs at the main menu with one big uncompressed archive (340 MB, tested 15.11.). So the
   // result is written like the game's own archives: zlib-compressed entries, split into parts that are
@@ -255,6 +255,15 @@ namespace hdCore
     return false;
   }
 
+  // Flat UI markers drawn on the battlefield (selection and range rings, waypoint chevrons, power bar,
+  // language flags, icon sheets): the remaster's relief and dust don't suit them, they stay original.
+  inline bool isUiMarker(const std::string& lowerBase)
+  {
+    for (const char* k : { "ring", "chevron", "powerbar", "icons", "flag_gr", "flag_ko", "flag_uk", "flag_usa" })
+      if (lowerBase.find(k) != std::string::npos) return true;
+    return false;
+  }
+
   // Texture names used by the map terrain meshes (test.xbf: texture name blob after the header).
   inline std::set<std::string> terrainTextureNames(const fs::path& data)
   {
@@ -317,7 +326,7 @@ namespace hdCore
       it.entry = kv.second;
       it.base = kv.first.substr(9);
       if (it.base.rfind("grey_", 0) == 0 || bases.count("grey_" + it.base)) it.kind = KindIcon;
-      else if (isEffect(it.base) || isFont(it.base)) it.kind = KindSkip;
+      else if (isEffect(it.base) || isFont(it.base) || isUiMarker(it.base)) it.kind = KindSkip;
       else if (terrain.count(it.base)) it.kind = KindTerrain;
       else it.kind = KindModel;
       if (it.kind != KindSkip) items.push_back(it);

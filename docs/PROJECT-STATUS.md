@@ -63,6 +63,10 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 
 **Eigentliche Ursache gefunden (15.11., per TextureTrace):** Das Spiel hing direkt nach dem Laden von `Standard.tga`, der **Schrift-Textur**. Schriften schneidet das Spiel nach Pixelpositionen aus, eine doppelt so große Schrift-Textur bringt es durcheinander. Schrift-Texturen (`font*`, `small*`, `standard*`: font3d, font3dsmall, small, small0, small1, Standard) bleiben jetzt original (Rezept v4). Packen und Aufteilen bleibt trotzdem drin (spart Speicher).
 
+**UI-Markierungen bleiben original (15.11., Rezept v5):** Ringe (Auswahl, Reichweite, Reparatur), Wegpunkt-Pfeile (`waypointchevron`, `vectorchevron`), `powerbar`, Icon-Sammelbilder (`hkicons3`), Sprachflaggen (`Flag_GR/KO/UK/USA`): Relief und Staub des Remasters passen nicht zu flacher UI-Grafik (Hinweis vom Projektinhaber: grüner Ring). Die Hausflagge `at_flag*` ist eine echte Modell-Textur und bleibt im Rezept.
+
+**Erstes Match mit HD-Texturen (15.11.):** läuft. Ruckel-Protokoll: nach dem Laden 30 s mit einigen Rucklern (bis 617 ms, Nachladen), danach durchgehend ~60 fps, einzelne Bilder 50–80 ms, ein Hänger 186 ms kurz nach einer Marke (viele Einheiten losgeschickt).
+
 **Erster Praxiswert:** Erzeugen dauerte beim Projektinhaber (RX 7800 XT) etwa **5 Minuten**.
 
 **Noch offen:** Spieltest im Spiel (Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).
