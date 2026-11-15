@@ -89,5 +89,9 @@ every access; orders in multiplayer and save games probably carry the same lists
 ## XBF models: vertex animation (decoded 15.11.2026)
 - Base reader: IceReaper/ebfd-re (`LibEmperor`, MIT); Python port in `tools/experiments/models/xbf.py`.
 - Infantry (`Units\AT_inf_H0.xbf`): body object `LtINF` has only **60 vertices / 106 triangles**, animated per vertex (flag 4), 390 stored poses of 711. Gun, muzzle flash and selection marker are separate objects with object (matrix) animation.
-- Vertex animation entry: 8 bytes per vertex and pose = 4 × int16. **Positions = first three int16 × 2^-unk** (`unk` from the animation header, 9 for the infantry = /512); pose 0 matches the static vertices exactly. The 4th int16 is a packed normal, probably an index into a normal table in Game.exe (not decoded yet; needed to write new models).
+- Vertex animation entry: 8 bytes per vertex and pose = 4 × int16. **Positions = first three int16 × 2^-unk** (`unk` from the animation header, 9 for the infantry = /512); pose 0 matches the static vertices exactly. The 4th int16 is a packed normal (decoded 15.11.2026, no table in Game.exe needed):
+  - Bits 0-3 = |x| (0-15), bit 4 = sign x; bits 5-8 = |y|, bit 9 = sign y; bits 10-13 = |z|, bit 14 = sign z; bit 15 unused.
+  - Normal = normalize(±x, ±y, ±z). Code 0 = no normal (82 of 12,931 entries).
+  - Check against the normals computed from the infantry geometry: median deviation 2.0°, 99.3 % under 5° (all outliers are code 0). The best possible value with this grid would be 1.2°, so Westwood rounded slightly differently or smoothed the normals.
+  - Encoding for new models: scale the normal so that the largest component is 15, round, set the sign bits.
 - Feasibility of smoother infantry: PN triangles (curved patch per triangle from positions + normals, corners stay) give rounder shoulders/arms without changing proportions (Loop subdivision shrinks the figure). Level 3 = 954 triangles. Renders: `tools/experiments/models/render.py`.
