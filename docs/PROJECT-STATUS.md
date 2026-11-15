@@ -122,6 +122,12 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 3. **Wegfindung selbst** (Minotaurus, Gruppen): schwer. Dafür müsste der Pfadsucher in Game.exe gefunden und verstanden werden. Erst Fälle sammeln (Karte, Einheit, Stelle) und Speicherstände, mit denen man es nachstellen kann.
 4. Prüfen, ob die Bildrate (dgVoodoo/FPS-Grenze) das Verhalten beeinflusst.
 
+### Grundregel: alles multiplayer-fest (Projektinhaber, 15.11.)
+Ziel ist später ein einfaches Matchmaking (Spieler finden sich über eine Webseite oder den Launcher). Deshalb:
+- Was nur ein Spieler sieht (Grafik, Zoom, Schrift, HD-Texturen, Logs, Info-Texte), darf jeder selbst einstellen.
+- Was das Spielgeschehen ändert (z. B. Gruppenbewegung), rechnet **nur mit Spiel-Ticks** (`[[0x7cb9d4]+0x14]`), Spieldaten und der Befehlsreihenfolge: keine echte Uhrzeit, kein eigener Zufall, Container mit fester Reihenfolge. Der Host legt fest, was an ist; alle prüfen beim Start Version und Einstellungen. Tastenkürzel zum Umschalten gibt es im Multiplayer nicht.
+- Matchmaking, Stand der Überlegung: eine Liste „wer ist online / wer sucht ein Spiel“ geht mit normalem Webspace. Für die Lobby im Spiel (Westwood-Online-Ersatz aus Reborn) und die Weiterleitung ohne Portfreigabe braucht es einen VPS (ca. 4–6 € im Monat). Dazu gehören Betrieb, Impressum/Datenschutz (IP-Adressen, Namen) und bei Chat Moderation. Größtes Risiko ist eine leere Lobby, also mit der Community planen (Discord, FED2k, ggf. mit Reborn).
+
 ### Geplant: Gruppenbewegung und Taktikband (besprochen 15.11.)
 **Schritt 1, Gruppenbewegung** (eine Funktion, nur Befehle des Spielers, nur Einzelspieler):
 - Formation nach „Magic Box“: bei langen Wegen Abstände zur Gruppenmitte behalten, sehr verstreute Gruppen am Ziel zusammenziehen, bei kurzen Wegen (Ziel innerhalb der Gruppenfläche) auf den Punkt.
@@ -129,7 +135,7 @@ Mögliche Ansätze (erst prüfen, was davon im Spiel nachstellbar ist):
 - Test: Haken im Launcher (anfangs aus) und **Strg+Umschalt+F** zum Umschalten im Spiel, Zeilen im Debug-Log.
 - Ansatzpunkte: Befehls-Ausführer `0x4c3900`, Aufruf je Einheit `0x4c47fe`, Unit::GetSpeed `0x564d30` (siehe reverse-engineering.md).
 
-**Gebaut (15.11., PR #14, noch nicht im Spiel getestet):** `EmperorHooks/GroupMove.cpp`. Launcher: „Mods & Extras“ → „Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)“ (Registry `GroupMove`, aus). Die Hooks sind aktiv, wenn der Haken oder das Debug-Log an ist. **Strg+Umschalt+F** schaltet im Gefecht um, mit Info-Text im Spiel. Debug-Log-Zeilen: `Gruppe #n: … Einheiten, Ziel …, Gruppenbewegung an/aus, Formation` und `Gruppe #n fertig: x/y angekommen | erste, 90 %, letzte, Streuung`. Die Messung läuft auch bei „aus“, so lassen sich beide Varianten am selben Spielstand vergleichen. Simulation unter Wine (20 Einheiten, vorne langsam, hinten schnell): Streuung der Ankunft 25,7 s → 8,3 s; eine festgefahrene Einheit bremst die anderen nicht. Rest-Streuung kommt von der Untergrenze 50 % des eigenen Tempos.
+**Gebaut (15.11., PR #14, noch nicht im Spiel getestet):** `EmperorHooks/GroupMove.cpp`. Launcher: „Mods & Extras“ → „Gruppenbewegung: Formation halten, gemeinsam ankommen (Test)“ (Registry `GroupMove`, aus). Die Hooks sind aktiv, wenn der Haken oder das Debug-Log an ist. **Strg+Umschalt+F** schaltet im Gefecht um, mit Info-Text im Spiel. Debug-Log-Zeilen: `Gruppe #n: … Einheiten, Ziel …, Gruppenbewegung an/aus, Formation` und `Gruppe #n fertig: x/y angekommen | erste, 90 %, letzte, Streuung`. Die Messung läuft auch bei „aus“, so lassen sich beide Varianten am selben Spielstand vergleichen. **Multiplayer-fest gerechnet** (Spiel-Ticks statt Uhrzeit; in der Simulation mit ungleichmäßig laufender Uhr nach 300 Ticks identische Positionen), im Multiplayer aber noch gesperrt, bis der Einstellungsabgleich zwischen den Spielern gebaut ist. Simulation unter Wine (20 Einheiten, vorne langsam, hinten schnell): Streuung der Ankunft 25,7 s → 8,3 s; eine festgefahrene Einheit bremst die anderen nicht. Rest-Streuung kommt von der Untergrenze 50 % des eigenen Tempos.
 
 **Info-Texte im Spiel** (`EmperorHooks/GameMessage.cpp`, über die Meldungszeile des Spiels): Gruppenbewegung an/aus, Debug-Log-Marke (Strg+Umschalt+L), Geld-Cheat (+25.000 / im Mehrspieler nicht verfügbar). Sprache wie im Launcher, Texte ohne Umlaute.
 

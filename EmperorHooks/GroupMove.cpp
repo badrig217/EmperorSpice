@@ -27,7 +27,12 @@
 //   unit: +0x0c side, +0x14/+0x1c position x/z (32 world units per tile), +0x70 type, +0xfc/+0x104
 //         destination x/z. type: +0 category (1 = unit), +0x3bd CanFly.
 //   world: +0xa270/+0xa274 map width/height in tiles.
+//   [0x7cb9d4] command/network manager, +0x14 = game frame (logic tick) counter, +1 per tick (0x50a0f0),
+//         the same on every machine of a multiplayer game.
 // Everything runs on the game thread (executor, move step, GetSpeed, frame hook).
+// Multiplayer-safe by design: all decisions depend only on game frames, unit data and command order (no
+// wall clock, no own randomness, ordered containers where iteration matters). Wall-clock time is only
+// used for log lines. It is still switched off in multiplayer until all players' settings are checked.
 namespace
 {
   const uintptr_t kExecVa = 0x004c3900;
@@ -41,10 +46,12 @@ namespace
 
   const float kTile = 32.0f;
   const float kSpeedFloor = 0.5f;     // never slower than half the unit's own speed
-  const DWORD kStuckMs = 6000;        // no progress toward the destination for this long -> not waited for
-  const DWORD kGoneMs = 10000;        // no move step for this long -> left the group (gave up, destroyed)
-  const DWORD kGroupMaxMs = 300000;   // a group order is followed for at most 5 minutes
-  const DWORD kUpdateMs = 500;
+  // in game frames (logic ticks; about 15-20 per second, the measured rate is in the log)
+  const int kStuckFrames = 100;       // no progress toward the destination for this long -> not waited for
+  const int kGoneFrames = 150;        // no move step for this long -> left the group (gave up, destroyed)
+  const int kGroupMaxFrames = 5000;   // a group order is followed for at most a few minutes
+  const int kUpdateEvery = 8;         // recompute the speed caps every 8 frames
+  const int kSpeedSampleFrames = 15;
 
   typedef void(__cdecl* Exec_t)(uint8_t* packet);
   typedef float(__fastcall* GetSpeed_t)(void* self, void* edx);
@@ -70,13 +77,15 @@ namespace
     float x = 0, z = 0, dx = 0, dz = 0; // last seen position and destination (from the move step)
     float bestD = 1e30f;                // closest distance to the destination so far
     float vmax = 0;                     // own speed without our cap
-    DWORD lastStep = 0, lastProgress = 0, vmaxTick = 0, arriveTick = 0;
+    int lastStep = 0, lastProgress = 0, vmaxFrame = 0; // game frames
+    DWORD arriveWall = 0;               // wall clock, only for the log
     bool arrived = false, dropped = false;
   };
   struct Group
   {
     int id = 0;
-    DWORD start = 0;
+    int startFrame = 0;
+    DWORD startWall = 0; // only for the log
     bool adjust = false; // formation/speed were applied (feature on when ordered)
     std::vector<Member> members;
   };
@@ -84,7 +93,13 @@ namespace
   std::unordered_map<uintptr_t, std::pair<int, size_t>> gMemberOf; // unit -> group id, member index
   std::unordered_map<uintptr_t, float> gCap;                       // unit -> speed cap
   int gNextId = 1;
-  DWORD gLastUpdate = 0;
+  int gLastUpdateFrame = -1;
+
+  int gameFrame()
+  {
+    uintptr_t net = *reinterpret_cast<uintptr_t volatile*>(0x007cb9d4);
+    return net ? *reinterpret_cast<int volatile*>(net + 0x14) : 0;
+  }
 
   bool inMission() { return *reinterpret_cast<volatile uint8_t*>(0x00817c0c) != 0; }
 
@@ -123,14 +138,15 @@ namespace
     (void)why;
   }
 
-  void finishGroup(Group& g, const char* why, DWORD now)
+  void finishGroup(Group& g, const char* why)
   {
+    DWORD now = GetTickCount(); // log only
     std::vector<DWORD> times;
     int dropped = 0;
     for (Member& m : g.members)
     {
       if (m.arrived)
-        times.push_back(m.arriveTick - g.start);
+        times.push_back(m.arriveWall - g.startWall);
       else
       {
         if (!m.dropped) dropMember(m, why);
@@ -138,9 +154,12 @@ namespace
       }
     }
     std::sort(times.begin(), times.end());
+    int frames = gameFrame() - g.startFrame;
+    if (now - g.startWall >= 3000 && frames > 0) // for checking the frame-based limits
+      Log("Gruppe #%d: Spieltakt %.1f Ticks/s\n", g.id, frames * 1000.0 / (now - g.startWall));
     if (times.empty())
       Log("Gruppe #%d fertig (%s): keine Einheit angekommen, %d ausgeschieden, nach %.1fs [%s]\n", g.id, why, dropped,
-          (now - g.start) / 1000.0, modeText(g.adjust));
+          (now - g.startWall) / 1000.0, modeText(g.adjust));
     else
     {
       size_t i90 = (times.size() * 9 + 9) / 10; // 90 % of the arrived units
@@ -152,11 +171,11 @@ namespace
     }
   }
 
-  void update(DWORD now)
+  void update(int now)
   {
-    if (now - gLastUpdate < kUpdateMs)
+    if (now == gLastUpdateFrame || now % kUpdateEvery != 0)
       return;
-    gLastUpdate = now;
+    gLastUpdateFrame = now;
     for (auto it = gGroups.begin(); it != gGroups.end();)
     {
       Group& g = it->second;
@@ -165,14 +184,14 @@ namespace
       {
         if (m.arrived || m.dropped)
           continue;
-        if (now - m.lastStep > kGoneMs)
+        if (now - m.lastStep > kGoneFrames)
           dropMember(m, "keine Bewegung mehr");
         else
           active++;
       }
-      if (!active || now - g.start > kGroupMaxMs)
+      if (!active || now - g.startFrame > kGroupMaxFrames)
       {
-        finishGroup(g, active ? "Zeitlimit" : "alle angekommen oder ausgeschieden", now);
+        finishGroup(g, active ? "Zeitlimit" : "alle angekommen oder ausgeschieden");
         it = gGroups.erase(it);
         continue;
       }
@@ -182,7 +201,7 @@ namespace
         float T = 0;
         for (Member& m : g.members)
         {
-          if (m.arrived || m.dropped || m.vmax <= 0 || now - m.lastProgress > kStuckMs)
+          if (m.arrived || m.dropped || m.vmax <= 0 || now - m.lastProgress > kStuckFrames)
             continue;
           float d = std::hypot(m.dx - m.x, m.dz - m.z);
           T = std::max(T, d / m.vmax);
@@ -191,7 +210,7 @@ namespace
         {
           if (m.arrived || m.dropped)
             continue;
-          if (T <= 0 || m.vmax <= 0 || now - m.lastProgress > kStuckMs)
+          if (T <= 0 || m.vmax <= 0 || now - m.lastProgress > kStuckFrames)
           {
             gCap.erase(m.unit);
             continue;
@@ -206,9 +225,8 @@ namespace
 
   void resetAll(const char* why)
   {
-    DWORD now = GetTickCount();
     for (auto& kv : gGroups)
-      finishGroup(kv.second, why, now);
+      finishGroup(kv.second, why);
     gGroups.clear();
     gMemberOf.clear();
     gCap.clear();
@@ -307,10 +325,11 @@ namespace
     gPlanActive = false;
     gPlan.clear();
 
-    DWORD now = GetTickCount();
+    int now = gameFrame();
     Group& g = gGroups[gNextId];
     g.id = gNextId++;
-    g.start = now;
+    g.startFrame = now;
+    g.startWall = GetTickCount();
     g.adjust = gOn;
     for (uintptr_t u : units)
     {
@@ -322,11 +341,11 @@ namespace
       m.x = at<float>(u, 0x14), m.z = at<float>(u, 0x1c);
       m.dx = at<float>(u, 0xfc), m.dz = at<float>(u, 0x104);
       m.vmax = realGetSpeed(reinterpret_cast<void*>(u), nullptr);
-      m.lastStep = m.lastProgress = m.vmaxTick = now;
+      m.lastStep = m.lastProgress = m.vmaxFrame = now;
       gMemberOf[u] = { g.id, g.members.size() };
       g.members.push_back(m);
     }
-    Log("Gruppe #%d: %d Einheiten, Ziel %d,%d, %s%s\n", g.id, (int)units.size(), int(tx / kTile), int(tz / kTile),
+    Log("Gruppe #%d: %d Einheiten, Ziel %d,%d, Spieltick %d, %s%s\n", g.id, (int)units.size(), int(tx / kTile), int(tz / kTile), now,
         modeText(g.adjust),
         !g.adjust ? "" : formed ? (scale < 0.999f ? ", Formation (zusammengezogen)" : ", Formation") : ", kurzer Weg: ohne Formation");
   }
@@ -369,21 +388,24 @@ namespace
     auto it = gMemberOf.find(unit);
     if (it == gMemberOf.end())
     {
-      int r = realMoveStep(self, edx, arg);
-      if (!gGroups.empty()) update(GetTickCount());
-      return r;
+      if (!gGroups.empty()) update(gameFrame());
+      return realMoveStep(self, edx, arg);
     }
     // read before the step (the step could in theory remove the unit)
     float x = at<float>(unit, 0x14), z = at<float>(unit, 0x1c), dx = at<float>(unit, 0xfc), dz = at<float>(unit, 0x104);
-    DWORD now = GetTickCount();
+    int now = gameFrame();
+    update(now); // first, so that a group finished here does not leave m dangling
+    it = gMemberOf.find(unit);
+    if (it == gMemberOf.end())
+      return realMoveStep(self, edx, arg);
     Member* m = nullptr;
     auto g = gGroups.find(it->second.first);
     if (g != gGroups.end() && it->second.second < g->second.members.size())
       m = &g->second.members[it->second.second];
-    if (m && now - m->vmaxTick > 1000)
+    if (m && now - m->vmaxFrame >= kSpeedSampleFrames)
     {
       m->vmax = realGetSpeed(self, nullptr);
-      m->vmaxTick = now;
+      m->vmaxFrame = now;
     }
     int ret = realMoveStep(self, edx, arg);
     if (m)
@@ -398,12 +420,11 @@ namespace
       if (ret == 0)
       {
         m->arrived = true;
-        m->arriveTick = now;
+        m->arriveWall = GetTickCount(); // log only
         gCap.erase(unit);
         gMemberOf.erase(unit);
       }
     }
-    update(now);
     return ret;
   }
 
