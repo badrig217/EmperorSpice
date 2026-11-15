@@ -59,13 +59,20 @@ Siehe `docs/tools-and-formats.md`: BAG-Format (Musik/Sprache) komplett, Pflichtd
 
 **Mitgeliefert:** `hdtools\` (38 MB) aus dem offiziellen Real-ESRGAN-Release v0.2.5.0, per SHA256 geprüft von `fetch-hdtools.ps1`: Programm, `vcomp140.dll`, Modell x4plus, `LICENSES.txt`. Ohne Vulkan-Treiber gibt es eine Fehlermeldung (kein Ersatzweg).
 
-**Noch offen:** Spieltest unter Windows mit echter Grafikkarte (Dauer, Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).
+**Erster Praxiswert:** Erzeugen dauerte beim Projektinhaber (RX 7800 XT) etwa **5 Minuten**.
+
+**Noch offen:** Spieltest im Spiel (Aussehen aller Völker, Speicher). Nebenbei behoben: Absturz des Launchers, wenn das Grafik-Paket eine Datei nicht kopieren kann (statt Meldung).
 
 ### Roadmap (vom Projektinhaber bestätigt, Schwerpunkt: **bessere Grafik**)
 1. **Bild:** Grafikstil HD (PR #10). Höchste Modell-Detailstufe erzwingen: **untersucht, bringt nichts** (H0/H1/H2/M3 sind Schadensstufen, die Detailstufe steht schon auf High, siehe reverse-engineering.md). Bleibt: eventuell Icons aus den 3D-Modellen neu rendern (groß).
 2. **Steuerung:** Komfortfunktionen. Was der Projektinhaber vermisst, ist noch nicht gefragt.
 3. **Technik:** Der Launcher soll beim ersten Start die Monitorauflösung vorschlagen statt 1280×720. Das ist klein und wirkt groß. Außerdem Multiplayer ohne Portfreigabe (schwer: Vermittlungsserver oder ZeroTier/Tailscale) und Speicherstände in „Dokumente“.
 4. **Gefühl:** Effekte und Stimmung (zum Teil schon im HD-Preset).
+
+### Launcher-Umbau (geplant nach dem HD-Test, eigener PR, abgesprochen 15.11.)
+- Größeres Fenster (ca. 960×640), links Navigation, rechts nur der gewählte Bereich, **„Spielen“ immer unten rechts** mit Statuszeile (z. B. „Spiel gefunden · HD an“).
+- Bereiche: **Start** (Spielen, Sprache, Verknüpfung, Hilfe) · **Grafik** (Bild, Bewegung, HD-Texturen mit Status) · **Mehrspieler** · **Mods & Extras** (Mods, Mod-Ordner, große Meldungen, Geld-Cheat) · **Problemlösung** (Mauszeiger immer zeigen, Maus nicht einfangen, je mit einem Satz Erklärung) · **Protokoll** (emperor.txt, Ruckel-Protokoll, beim Start pausieren).
+- **Schalter Hell/Dunkel**, wird gemerkt (Registry). Die Standard-Windows-Steuerelemente (vor allem Häkchen und Auswahllisten) lassen sich nicht sauber dunkel färben, deshalb werden sie selbst gezeichnet.
 
 ### Für später notiert (14.11.)
 - **Große Oberflächen-Texturen** mitnehmen, wenn Seitenleiste/Menüs drankommen: `ground.tga` (512×512, gemalter Sand/Fels, vermutlich Hintergrund der Kampagnenkarte) und `ring1_512.tga` (512×512, Oberfläche der Kampagnenkarte mit Bogen, Kugeln, Schriftzug „CAMPAIGN MAP“). Schrift braucht eine eigene Behandlung, die KI verschmiert sie. `arrw_nw.tga` (384×1584, Sammelbild mit Pfeilen/Markierungen auf Magenta) bleibt pixelgenau original.
