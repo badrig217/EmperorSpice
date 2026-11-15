@@ -72,3 +72,9 @@ Werkzeuge: `tools/re/re_tools.py` (pefile + capstone), `tools/re/rfd.py` (Archiv
 
 - IRC-ähnlicher Server auf TCP 4005, dazu ein UDP-Proxy (WolProxyServer/Client). Bei v1.1 abgesichert: unbekannte Befehle werden ignoriert, die Zahl der Verbindungen und die Puffer sind begrenzt, der Client akzeptiert nur Pakete vom eigenen Host.
 - Wine/Proton: `OaEnablePerUserTLibRegistration` muss dynamisch geladen werden (PR #7).
+
+## Archive loading and textures (found 15.11.2026, HD texture hang)
+- `0x402f90` reads the RFH indexes `PREFIX0001.RFH`… with `fopen`/`fread` until the first gap; fields per entry go to a 0x20 struct (+4 ts, +8 flags, +0xC stored, +0x10 raw, +0x1C offset, +0x14 name), inserted via `0x4038b0`.
+- `0x403b70` opens the RFDs. If the library flag `[this+0x97c]` is set, every RFD is read **completely into one malloc block** (`_stat` → `malloc(size)` → `fread`). Game.exe is 32 bit without Large Address Aware.
+- `0x403490` `ResourceLibrary::Load(name, uint32* size, 0, 0)` (thiscall, `ret 0x10`) returns the file data. The texture loader at `0x54c2b8` builds `TEXTURES\name`, calls it and logs "Failed to find texture %s" on 0, then creates the texture with `0x417810(data, info)` (cdecl).
+- Diagnostic hook: `EmperorHooks/TextureTrace.cpp` logs both calls until the first mission.

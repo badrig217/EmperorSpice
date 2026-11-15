@@ -15,6 +15,7 @@
 #include "Log.hpp"
 #include "MoneyCheat.hpp"
 #include "PerfLog.hpp"
+#include "TextureTrace.hpp"
 #include "CameraZoom.hpp"
 #include "ReShadeAddon.hpp"
 #include "LargeFont.hpp"
@@ -139,6 +140,7 @@ void runHooks()
   // Optional single-player money cheat (polled from EndScene).
   initMoneyCheat(settings.moneyCheat);
   initPerfLog(settings.perfLog && settings.logFile); // writes into emperor.txt, so only with the log on
+  initTextureTrace(settings.perfLog && settings.logFile); // diagnostic for the HD textures, same switch
   initCameraZoom(settings.cameraZoom);
 
   // Optional 2x in-game text (needs the HD font archives the launcher installs).
